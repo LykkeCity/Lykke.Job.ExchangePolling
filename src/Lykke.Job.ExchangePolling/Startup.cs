@@ -6,6 +6,7 @@ using AzureStorage.Tables;
 using Common.Log;
 using Lykke.Common.ApiLibrary.Middleware;
 using Lykke.Common.ApiLibrary.Swagger;
+using Lykke.Job.ExchangePolling.PeriodicalHandlers;
 using Lykke.Job.LykkeJob.Core.Services;
 using Lykke.Job.LykkeJob.Core.Settings;
 using Lykke.Job.LykkeJob.Models;
@@ -30,16 +31,12 @@ namespace Lykke.Job.LykkeJob
         public IContainer ApplicationContainer { get; private set; }
         public IConfigurationRoot Configuration { get; }
         public ILog Log { get; private set; }
-#if azurequeuesub
-        
-        private TriggerHost _triggerHost;
-        private Task _triggerHostTask;
-#endif
 
         public Startup(IHostingEnvironment env)
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
+                .AddJsonFile("appsettings.dev.json", true, true)
                 .AddEnvironmentVariables();
 
             Configuration = builder.Build();
@@ -57,17 +54,15 @@ namespace Lykke.Job.LykkeJob
                             new Newtonsoft.Json.Serialization.DefaultContractResolver();
                     });
 
-                services.AddSwaggerGen(options =>
-                {
-                    options.DefaultLykkeConfiguration("v1", "LykkeJob API");
-                });
+                services.AddSwaggerGen(options => { options.DefaultLykkeConfiguration("v1", "ExchangePolling Job API"); });
 
                 var builder = new ContainerBuilder();
-                var appSettings = Configuration.LoadSettings<AppSettings>();
+                var appSettings = Configuration.LoadSettings<ExchangePollingSettings>();
 
                 Log = CreateLogWithSlack(services, appSettings);
 
-                builder.RegisterModule(new JobModule(appSettings.CurrentValue.LykkeJobJob, appSettings.Nested(x => x.LykkeJobJob.Db), Log));
+                builder.RegisterModule(new JobModule(appSettings.CurrentValue.ExchangePollingJob,
+                    appSettings.Nested(x => x.ExchangePollingJob.Db), Log));
 
                 builder.Populate(services);
 
@@ -91,7 +86,10 @@ namespace Lykke.Job.LykkeJob
                     app.UseDeveloperExceptionPage();
                 }
 
-                app.UseLykkeMiddleware("LykkeJob", ex => new ErrorResponse {ErrorMessage = "Technical problem"});
+                app.UseLykkeMiddleware("ExchangePolling Job", ex => new ErrorResponse
+                {
+                    ErrorMessage = "Technical problem"
+                });
 
                 app.UseMvc();
                 app.UseSwagger(c =>
@@ -120,15 +118,13 @@ namespace Lykke.Job.LykkeJob
         {
             try
             {
-                // NOTE: Job not yet recieve and process IsAlive requests here
+                // NOTE: Job not yet receive and process IsAlive requests here
 
                 await ApplicationContainer.Resolve<IStartupManager>().StartAsync();
-#if azurequeuesub
-
-                _triggerHost = new TriggerHost(new AutofacServiceProvider(ApplicationContainer));
-
-                _triggerHostTask = _triggerHost.Start();
-#endif
+                
+                //start periodic handlers
+                ApplicationContainer.Resolve<JfdPollingHandler>().Start();
+                
                 await Log.WriteMonitorAsync("", Program.EnvInfo, "Started");
             }
             catch (Exception ex)
@@ -145,15 +141,6 @@ namespace Lykke.Job.LykkeJob
                 // NOTE: Job still can recieve and process IsAlive requests here, so take care about it if you add logic here.
 
                 await ApplicationContainer.Resolve<IShutdownManager>().StopAsync();
-#if azurequeuesub
-
-                _triggerHost?.Cancel();
-
-                if(_triggerHostTask != null)
-                {
-                    await _triggerHostTask;
-                }
-#endif
             }
             catch (Exception ex)
             {
@@ -170,12 +157,12 @@ namespace Lykke.Job.LykkeJob
             try
             {
                 // NOTE: Job can't recieve and process IsAlive requests here, so you can destroy all resources
-                
+
                 if (Log != null)
                 {
                     await Log.WriteMonitorAsync("", Program.EnvInfo, "Terminating");
                 }
-                
+
                 ApplicationContainer.Dispose();
             }
             catch (Exception ex)
@@ -189,35 +176,39 @@ namespace Lykke.Job.LykkeJob
             }
         }
 
-        private static ILog CreateLogWithSlack(IServiceCollection services, IReloadingManager<AppSettings> settings)
+        private static ILog CreateLogWithSlack(IServiceCollection services, IReloadingManager<ExchangePollingSettings> settings)
         {
             var consoleLogger = new LogToConsole();
             var aggregateLogger = new AggregateLogger();
 
             aggregateLogger.AddLog(consoleLogger);
 
-            var dbLogConnectionStringManager = settings.Nested(x => x.LykkeJobJob.Db.LogsConnString);
+            var dbLogConnectionStringManager = settings.Nested(x => x.ExchangePollingJob.Db.LogsConnString);
             var dbLogConnectionString = dbLogConnectionStringManager.CurrentValue;
 
             if (string.IsNullOrEmpty(dbLogConnectionString))
             {
-                consoleLogger.WriteWarningAsync(nameof(Startup), nameof(CreateLogWithSlack), "Table loggger is not inited").Wait();
+                consoleLogger
+                    .WriteWarningAsync(nameof(Startup), nameof(CreateLogWithSlack), "Table loggger is not inited")
+                    .Wait();
                 return aggregateLogger;
             }
 
             if (dbLogConnectionString.StartsWith("${") && dbLogConnectionString.EndsWith("}"))
-                throw new InvalidOperationException($"LogsConnString {dbLogConnectionString} is not filled in settings");
+                throw new InvalidOperationException(
+                    $"LogsConnString {dbLogConnectionString} is not filled in settings");
 
             var persistenceManager = new LykkeLogToAzureStoragePersistenceManager(
                 AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "LykkeJobLog", consoleLogger),
                 consoleLogger);
 
             // Creating slack notification service, which logs own azure queue processing messages to aggregate log
-            var slackService = services.UseSlackNotificationsSenderViaAzureQueue(new AzureQueueIntegration.AzureQueueSettings
-            {
-                ConnectionString = settings.CurrentValue.SlackNotifications.AzureQueue.ConnectionString,
-                QueueName = settings.CurrentValue.SlackNotifications.AzureQueue.QueueName
-            }, aggregateLogger);
+            var slackService = services.UseSlackNotificationsSenderViaAzureQueue(
+                new AzureQueueIntegration.AzureQueueSettings
+                {
+                    ConnectionString = settings.CurrentValue.SlackNotifications.AzureQueue.ConnectionString,
+                    QueueName = settings.CurrentValue.SlackNotifications.AzureQueue.QueueName
+                }, aggregateLogger);
 
             var slackNotificationsManager = new LykkeLogToAzureSlackNotificationsManager(slackService, consoleLogger);
 

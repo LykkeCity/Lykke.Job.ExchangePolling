@@ -1,16 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
-	<Version>1.0.0</Version>
+    <Version>1.0.0</Version>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Lykke.Common" Version="3.0.0" />
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Lykke.Job.ExchangePolling.Core\Lykke.Job.ExchangePolling.Core.csproj" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="Lykke.Common" Version="3.2.0" />
+    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.5-beta" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="MarginTrading.DataReaderClient, Version=1.0.14.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\..\..\..\Users\a.andreev\.nuget\packages\lykke.margintrading.datareaderclient\1.0.14\lib\netstandard2.0\MarginTrading.DataReaderClient.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

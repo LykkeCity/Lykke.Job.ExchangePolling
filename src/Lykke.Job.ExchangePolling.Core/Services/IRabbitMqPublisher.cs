@@ -5,8 +5,8 @@ using Lykke.Job.LykkeJob.Contract;
 
 namespace Lykke.Job.LykkeJob.Core.Services
 {
-    public interface IMyRabbitPublisher : IStartable, IStopable
+    public interface IRabbitMqPublisher<in T>
     {
-        Task PublishAsync(MyPublishedMessage message);
+        Task Publish(T message);
     }
 }

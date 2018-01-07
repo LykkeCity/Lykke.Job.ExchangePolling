@@ -12,12 +12,9 @@ namespace Lykke.Job.LykkeJob
 
         public static async Task Main(string[] args)
         {
-            Console.WriteLine($"{PlatformServices.Default.Application.ApplicationName} version {PlatformServices.Default.Application.ApplicationVersion}");
-//#$if DEBUG
-            Console.WriteLine("Is DEBUG");
-//#$else
-            //$#$//Console.WriteLine("Is RELEASE");
-//#$endif
+            Console.WriteLine(
+                $"{PlatformServices.Default.Application.ApplicationName} version {PlatformServices.Default.Application.ApplicationVersion}");
+
             Console.WriteLine($"ENV_INFO: {EnvInfo}");
 
             try
@@ -44,11 +41,8 @@ namespace Lykke.Job.LykkeJob
                 Console.WriteLine($"Process will be terminated in {delay}. Press any key to terminate immediately.");
 
                 await Task.WhenAny(
-                            Task.Delay(delay),
-                            Task.Run(() =>
-                            {
-                                Console.ReadKey(true);
-                            }));
+                    Task.Delay(delay),
+                    Task.Run(() => { Console.ReadKey(true); }));
             }
 
             Console.WriteLine("Terminated");

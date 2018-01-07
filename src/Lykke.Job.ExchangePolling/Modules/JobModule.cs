@@ -1,39 +1,37 @@
-﻿using Autofac;
+﻿using System;
+using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
+using Lykke.Job.ExchangePolling.Core.Caches;
+using Lykke.Job.ExchangePolling.Services.Caches;
+using Lykke.Job.LykkeJob.Contract;
 using Lykke.Job.LykkeJob.Core.Services;
 using Lykke.Job.LykkeJob.Core.Settings.JobSettings;
 using Lykke.Job.LykkeJob.Services;
+using Lykke.Service.ExchangeConnector.Client;
 using Lykke.SettingsReader;
-#if azurequeuesub
-using Lykke.JobTriggers.Extenstions;
-#endif
-#if timeperiod
-using Lykke.Job.LykkeJob.PeriodicalHandlers;
-#endif
-#if rabbitsub
-using Lykke.Job.LykkeJob.RabbitSubscribers;
-#endif
-#if rabbitpub
 using Lykke.Job.LykkeJob.Contract;
 using Lykke.RabbitMq.Azure;
-using Lykke.RabbitMqBroker.Publisher;
-using Lykke.Job.LykkeJob.RabbitPublishers;
 using AzureStorage.Blob;
-#endif
+using Lykke.Job.ExchangePolling.PeriodicalHandlers;
+using Lykke.Job.ExchangePolling.RabbitPublishers;
+using Lykke.Job.ExchangePolling.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Rest;
 
 namespace Lykke.Job.LykkeJob.Modules
 {
     public class JobModule : Module
     {
-        private readonly LykkeJobSettings _settings;
+        private readonly ExchangePollingJobSettings _settings;
         private readonly IReloadingManager<DbSettings> _dbSettingsManager;
+
         private readonly ILog _log;
+
         // NOTE: you can remove it if you don't need to use IServiceCollection extensions to register service specific dependencies
         private readonly IServiceCollection _services;
 
-        public JobModule(LykkeJobSettings settings, IReloadingManager<DbSettings> dbSettingsManager, ILog log)
+        public JobModule(ExchangePollingJobSettings settings, IReloadingManager<DbSettings> dbSettingsManager, ILog log)
         {
             _settings = settings;
             _log = log;
@@ -63,77 +61,53 @@ namespace Lykke.Job.LykkeJob.Modules
 
             builder.RegisterType<ShutdownManager>()
                 .As<IShutdownManager>();
-#if azurequeuesub
-
-            RegisterAzureQueueHandlers(builder);
-#endif
-#if timeperiod
+            
             RegisterPeriodicalHandlers(builder);
-#endif
-#if rabbitsub
-            RegisterRabbitMqSubscribers(builder);
-#endif
-#if rabbitpub
+
             RegisterRabbitMqPublishers(builder);
-#endif
 
-            // TODO: Add your dependencies here
+            builder.RegisterType<ExchangePollingService>()
+                .As<IExchangePollingService>()
+                .SingleInstance();
 
+            builder.RegisterType<ExchangeCache>()
+                .As<IExchangeCache>()
+                .SingleInstance();
+            
+            builder.RegisterType<ExchangeConnectorService>()
+                .As<IExchangeConnectorService>()
+                .WithParameter("baseUri", new Uri(_settings.Services.ExchangeConnectorService.Url))
+                .WithParameter("credentials", new TokenCredentials(_settings.Services.ExchangeConnectorService.ApiKey))
+                .SingleInstance();
+            
             builder.Populate(_services);
         }
 
-#if azurequeuesub
-        private void RegisterAzureQueueHandlers(ContainerBuilder builder)
-        {
-            // NOTE: You can implement your own poison queue notifier for azure queue subscription.
-            // See https://github.com/LykkeCity/JobTriggers/blob/master/readme.md
-            // builder.Register<PoisionQueueNotifierImplementation>().As<IPoisionQueueNotifier>();
-
-            builder.AddTriggers(
-                pool =>
-                {
-                    pool.AddDefaultConnection(_settings.AzureQueue.ConnectionString);
-                });
-        }
-
-#endif
-#if timeperiod
         private void RegisterPeriodicalHandlers(ContainerBuilder builder)
         {
             // TODO: You should register each periodical handler in DI container as IStartable singleton and autoactivate it
 
-            builder.RegisterType<MyPeriodicalHandler>()
-                .As<IStartable>()
-                .AutoActivate()
+            builder.RegisterType<JfdPollingHandler>()
+                .WithParameter(TypedParameter.From(_settings.BitmexSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
         }
 
-#endif
-#if rabbitsub
-        private void RegisterRabbitMqSubscribers(ContainerBuilder builder)
-        {
-            // TODO: You should register each subscriber in DI container as IStartable singleton and autoactivate it
-
-            builder.RegisterType<MyRabbitSubscriber>()
-                .As<IStartable>()
-                .AutoActivate()
-                .SingleInstance()
-                .WithParameter(TypedParameter.From(_settings.Rabbit.ConnectionString));
-        }
-
-#endif
-#if rabbitpub
         private void RegisterRabbitMqPublishers(ContainerBuilder builder)
         {
             // TODO: You should register each publisher in DI container as publisher specific interface and as IStartable,
             // as singleton and do not autoactivate it
 
-            builder.RegisterType<MyRabbitPublisher>()
-                .As<IMyRabbitPublisher>()
+            builder.RegisterType<RabbitMqPublisher<ExecutionReport>>()
+                .As<IRabbitMqPublisher<ExecutionReport>>()
                 .As<IStartable>()
                 .SingleInstance()
-                .WithParameter(TypedParameter.From(_settings.Rabbit.ConnectionString));
+                .WithParameters(new[]
+                {
+                    new NamedParameter("connectionString", _settings.Rabbit.ExchangeConnectorOrder.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.Rabbit.ExchangeConnectorOrder.ExchangeName),
+                    new NamedParameter("enabled", true),
+                    new NamedParameter("log", _log)
+                });
         }
-#endif
     }
 }
