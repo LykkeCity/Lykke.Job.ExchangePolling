@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using JetBrains.Annotations;
 
-namespace Lykke.Job.ExchangePolling.Core
+namespace Lykke.Job.ExchangePolling.Core.Repositories
 {
     public interface IGenericBlobRepository
 	{

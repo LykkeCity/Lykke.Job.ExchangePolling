@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Common.Log;
-using Lykke.Job.LykkeJob.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.RabbitMqBroker.Publisher;
 using Lykke.RabbitMqBroker.Subscriber;
 

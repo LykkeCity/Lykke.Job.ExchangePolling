@@ -1,5 +1,5 @@
 ﻿using Common.Log;
-using Lykke.Job.LykkeJob.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Services;
 
 namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
 {

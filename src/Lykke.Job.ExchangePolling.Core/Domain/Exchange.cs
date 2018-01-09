@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using Lykke.Job.ExchangePolling.Core.Caches;
 
 namespace Lykke.Job.ExchangePolling.Core.Domain
 {

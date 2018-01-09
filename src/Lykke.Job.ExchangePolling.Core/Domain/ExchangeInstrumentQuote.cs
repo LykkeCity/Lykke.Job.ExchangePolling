@@ -1,4 +1,5 @@
 ﻿using System;
+using Lykke.Job.ExchangePolling.Core.Caches;
 
 namespace Lykke.Job.ExchangePolling.Core.Domain
 {

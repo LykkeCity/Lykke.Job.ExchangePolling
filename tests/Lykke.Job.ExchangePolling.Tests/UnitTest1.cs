@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace Lykke.Job.LykkeJob.Tests
+namespace Lykke.Job.ExchangePolling.Tests
 {
     public class UnitTest1
     {

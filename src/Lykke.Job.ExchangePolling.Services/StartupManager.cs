@@ -6,7 +6,8 @@ using Common.Log;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
-using Lykke.Job.LykkeJob.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Repositories;
+using Lykke.Job.ExchangePolling.Core.Services;
 using MarginTrading.MarketMaker.Contracts;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
 

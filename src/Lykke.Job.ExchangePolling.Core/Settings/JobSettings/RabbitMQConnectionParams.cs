@@ -1,6 +1,6 @@
 ﻿using Lykke.SettingsReader.Attributes;
 
-namespace Lykke.Job.LykkeJob.Core.Settings.JobSettings
+namespace Lykke.Job.ExchangePolling.Core.Settings.JobSettings
 {
     /// <summary>
     /// RabbitMQ Connection Params. ExchangeType is always fanout. RoutingKey is always null.

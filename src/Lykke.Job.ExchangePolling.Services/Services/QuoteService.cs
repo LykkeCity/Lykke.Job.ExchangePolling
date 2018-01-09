@@ -1,11 +1,13 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
-using Lykke.Job.LykkeJob.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Services;
 
-namespace Lykke.Job.LykkeJob.Services
+namespace Lykke.Job.ExchangePolling.Services.Services
 {
     public class QuoteService : IQuoteService
     {
@@ -19,30 +21,58 @@ namespace Lykke.Job.LykkeJob.Services
             _log = log;
         }
 
-        public async Task HandleQuote(ExchangeBestPrice quote)
+        public async Task HandleQuote(OrderBook orderBook)
         {
-            if (string.IsNullOrEmpty(quote?.ExchangeName) || string.IsNullOrEmpty(quote.Instrument)
-                                                          || quote.Bid == 0 || quote.Ask == 0)
+            var bestPriceQuote = ConvertToBestPriceQuote(orderBook);
+
+            if (string.IsNullOrEmpty(bestPriceQuote?.ExchangeName) || string.IsNullOrEmpty(bestPriceQuote.Instrument)
+                                                                   || bestPriceQuote.Bid == 0 || bestPriceQuote.Ask == 0)
             {
                 await _log.WriteWarningAsync("QuoteService", "HandleQuote",
-                    "Incoming quote is incorrect: " + (quote?.ToString() ?? "null"));
+                    "Incoming quote is incorrect: " + (bestPriceQuote?.ToString() ?? "null"));
                 return;
             }
-            
+
             _quoteCache.Set(new ExchangeInstrumentQuote
             {
-                ExchangeName = quote.ExchangeName,
-                Instrument = quote.Instrument,
+                ExchangeName = bestPriceQuote.ExchangeName,
+                Instrument = bestPriceQuote.Instrument,
                 Base = "",
                 Quote = "",
-                Bid = quote.Bid,
-                Ask = quote.Ask
+                Bid = bestPriceQuote.Bid,
+                Ask = bestPriceQuote.Ask
             });
         }
 
         public ExchangeInstrumentQuote Get(string exchangeName, string instrument)
         {
             return _quoteCache.Get(exchangeName, instrument);
+        }
+
+        private ExchangeBestPrice ConvertToBestPriceQuote(OrderBook orderBook)
+        {
+            var ask = GetBestPrice(true, orderBook.Asks);
+            var bid = GetBestPrice(false, orderBook.Bids);
+            
+            return ask == null || bid == null
+                ? null
+                : new ExchangeBestPrice
+            {
+                ExchangeName = orderBook.Source,
+                Instrument = orderBook.AssetPairId,
+                Timestamp = orderBook.Timestamp,
+                Ask = ask.Value,
+                Bid = bid.Value
+            };
+        }
+
+        private decimal? GetBestPrice(bool isBuy, IReadOnlyCollection<VolumePrice> prices)
+        {
+            if (!prices.Any())
+                return null;
+            return isBuy
+                ? prices.Min(x => x.Price)
+                : prices.Max(x => x.Price);
         }
     }
 }

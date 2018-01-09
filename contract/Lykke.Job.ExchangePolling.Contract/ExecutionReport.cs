@@ -1,11 +1,10 @@
 ﻿using System;
 using Common;
-using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Contract.Enums;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
-namespace Lykke.Job.LykkeJob.Contract
+namespace Lykke.Job.ExchangePolling.Contract
 {
     public class ExecutionReport
     {

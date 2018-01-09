@@ -1,4 +1,5 @@
 ﻿using System;
+using Lykke.Job.ExchangePolling.Core.Domain.Enums;
 using Newtonsoft.Json;
 
 namespace Lykke.Job.ExchangePolling.Core.Domain

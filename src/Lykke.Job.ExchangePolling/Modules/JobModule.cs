@@ -2,43 +2,43 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
-using Lykke.Job.ExchangePolling.Core.Caches;
-using Lykke.Job.ExchangePolling.Services.Caches;
-using Lykke.Job.LykkeJob.Contract;
-using Lykke.Job.LykkeJob.Core.Services;
-using Lykke.Job.LykkeJob.Core.Settings.JobSettings;
-using Lykke.Job.LykkeJob.Services;
-using Lykke.Service.ExchangeConnector.Client;
-using Lykke.SettingsReader;
-using Lykke.Job.LykkeJob.Contract;
-using Lykke.RabbitMq.Azure;
-using AzureStorage.Blob;
 using Lykke.Job.ExchangePolling.Contract;
+using Lykke.Job.ExchangePolling.Core.Caches;
+using Lykke.Job.ExchangePolling.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.Job.ExchangePolling.PeriodicalHandlers;
 using Lykke.Job.ExchangePolling.RabbitPublishers;
 using Lykke.Job.ExchangePolling.RabbitSubscribers;
 using Lykke.Job.ExchangePolling.Services;
-using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
+using Lykke.Job.ExchangePolling.Services.Caches;
+using Lykke.Job.ExchangePolling.Services.Services;
+using Lykke.Service.ExchangeConnector.Client;
+using Lykke.SettingsReader;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Rest;
 
-namespace Lykke.Job.LykkeJob.Modules
+namespace Lykke.Job.ExchangePolling.Modules
 {
     public class JobModule : Module
     {
         private readonly ExchangePollingJobSettings _settings;
         private readonly IReloadingManager<DbSettings> _dbSettingsManager;
+        private readonly bool _isDevelopment;
 
         private readonly ILog _log;
 
         // NOTE: you can remove it if you don't need to use IServiceCollection extensions to register service specific dependencies
         private readonly IServiceCollection _services;
 
-        public JobModule(ExchangePollingJobSettings settings, IReloadingManager<DbSettings> dbSettingsManager, ILog log)
+        public JobModule(ExchangePollingJobSettings settings, 
+            IReloadingManager<DbSettings> dbSettingsManager,
+            bool isDevelopment, 
+            ILog log)
         {
             _settings = settings;
-            _log = log;
             _dbSettingsManager = dbSettingsManager;
+            _isDevelopment = isDevelopment;
+            _log = log;
 
             _services = new ServiceCollection();
         }
@@ -100,8 +100,6 @@ namespace Lykke.Job.LykkeJob.Modules
 
         private void RegisterPeriodicalHandlers(ContainerBuilder builder)
         {
-            // TODO: You should register each periodical handler in DI container as IStartable singleton and autoactivate it
-
             builder.RegisterType<JfdPollingHandler>()
                 .WithParameter(TypedParameter.From(_settings.JdfSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
@@ -112,17 +110,15 @@ namespace Lykke.Job.LykkeJob.Modules
         
         private void RegisterRabbitMqSubscribers(ContainerBuilder builder)
         {
-            // TODO: You should register each subscriber in DI container as IStartable singleton and autoactivate it
-
-            builder.RegisterType<RabbitMqSubscriber<ExchangeBestPrice>>()
-                .As<IRabbitMqSubscriber<ExchangeBestPrice>>()
+            builder.RegisterType<OrderBookBtcUsdSubscriber>()
+                .AsSelf()
                 .SingleInstance()
                 .WithParameters(new[]
                 {
-                    new NamedParameter("connectionString", _settings.Rabbit.ExchangeConnectorOrder.ConnectionString),
-                    new NamedParameter("exchangeName", _settings.Rabbit.ExchangeConnectorOrder.ExchangeName),
-                    new NamedParameter("queueName", _settings.Rabbit.ExchangeConnectorOrder.ExchangeName),
-                    new NamedParameter("isDurable", true),
+                    new NamedParameter("connectionString", _settings.Rabbit.ExchangeConnectorQuotesBTCUSD.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.Rabbit.ExchangeConnectorQuotesBTCUSD.ExchangeName),
+                    new NamedParameter("queueName", _settings.Rabbit.ExchangeConnectorQuotesBTCUSD.ExchangeName),
+                    new NamedParameter("isDurable", !_isDevelopment),
                     new NamedParameter("log", _log)
                 });
         }

@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
-using Lykke.Job.LykkeJob.Core.Domain.Health;
-using Lykke.Job.LykkeJob.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Domain.Health;
+using Lykke.Job.ExchangePolling.Core.Services;
 
-namespace Lykke.Job.LykkeJob.Services
+namespace Lykke.Job.ExchangePolling.Services.Services
 {
     // NOTE: See https://lykkex.atlassian.net/wiki/spaces/LKEWALLET/pages/35755585/Add+your+app+to+Monitoring
     public class HealthService : IHealthService

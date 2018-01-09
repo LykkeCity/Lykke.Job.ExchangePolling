@@ -6,26 +6,26 @@ using AzureStorage.Tables;
 using Common.Log;
 using Lykke.Common.ApiLibrary.Middleware;
 using Lykke.Common.ApiLibrary.Swagger;
-using Lykke.Job.ExchangePolling.Contract;
+using Lykke.Job.ExchangePolling.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Settings;
+using Lykke.Job.ExchangePolling.Models;
+using Lykke.Job.ExchangePolling.Modules;
 using Lykke.Job.ExchangePolling.PeriodicalHandlers;
-using Lykke.Job.LykkeJob.Core.Services;
-using Lykke.Job.LykkeJob.Core.Settings;
-using Lykke.Job.LykkeJob.Models;
-using Lykke.Job.LykkeJob.Modules;
+using Lykke.Job.ExchangePolling.RabbitSubscribers;
 using Lykke.Logs;
 using Lykke.SettingsReader;
 using Lykke.SlackNotification.AzureQueue;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
-#if azurequeuesub
-using Lykke.JobTriggers.Triggers;
-using System.Threading.Tasks;
-#endif
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+#if azurequeuesub
+using Lykke.JobTriggers.Triggers;
+using System.Threading.Tasks;
+#endif
 
-namespace Lykke.Job.LykkeJob
+namespace Lykke.Job.ExchangePolling
 {
     public class Startup
     {
@@ -39,6 +39,7 @@ namespace Lykke.Job.LykkeJob
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.dev.json", true, true)
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
 
             Configuration = builder.Build();
@@ -64,7 +65,7 @@ namespace Lykke.Job.LykkeJob
                 Log = CreateLogWithSlack(services, appSettings);
 
                 builder.RegisterModule(new JobModule(appSettings.CurrentValue.ExchangePollingJob,
-                    appSettings.Nested(x => x.ExchangePollingJob.Db), Log));
+                    appSettings.Nested(x => x.ExchangePollingJob.Db), Environment.IsDevelopment(), Log));
 
                 services.RegisterMtRiskManagementHedgingServiceClient(
                     appSettings.CurrentValue.ExchangePollingJob.Services.AggregatedHedgingService.Url,
@@ -134,7 +135,7 @@ namespace Lykke.Job.LykkeJob
                 //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
                 
                 //subscribe on rabbits
-                ApplicationContainer.Resolve<IRabbitMqSubscriber<ExchangeBestPrice>>().Subscribe(
+                ApplicationContainer.Resolve<OrderBookBtcUsdSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
                 
                 await Log.WriteMonitorAsync("", Program.EnvInfo, "Started");

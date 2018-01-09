@@ -2,11 +2,11 @@
 using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core.Domain;
 
-namespace Lykke.Job.LykkeJob.Core.Services
+namespace Lykke.Job.ExchangePolling.Core.Services
 {
     public interface IQuoteService
     {
-        Task HandleQuote(ExchangeBestPrice quote);
+        Task HandleQuote(OrderBook quote);
 
         ExchangeInstrumentQuote Get(string exchangeName, string instrument);
     }

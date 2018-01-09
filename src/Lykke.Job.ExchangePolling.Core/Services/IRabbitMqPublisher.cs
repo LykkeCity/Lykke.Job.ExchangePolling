@@ -1,9 +1,6 @@
 ﻿using System.Threading.Tasks;
-using Autofac;
-using Common;
-using Lykke.Job.LykkeJob.Contract;
 
-namespace Lykke.Job.LykkeJob.Core.Services
+namespace Lykke.Job.ExchangePolling.Core.Services
 {
     public interface IRabbitMqPublisher<in T>
     {

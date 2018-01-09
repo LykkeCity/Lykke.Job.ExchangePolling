@@ -4,7 +4,7 @@ using Autofac;
 using Common;
 using Common.Log;
 using Lykke.Job.ExchangePolling.Contract;
-using Lykke.Job.LykkeJob.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.RabbitMqBroker;
 using Lykke.RabbitMqBroker.Subscriber;
 

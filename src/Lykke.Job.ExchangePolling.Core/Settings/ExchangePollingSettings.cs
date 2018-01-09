@@ -1,7 +1,7 @@
-﻿using Lykke.Job.LykkeJob.Core.Settings.JobSettings;
-using Lykke.Job.LykkeJob.Core.Settings.SlackNotifications;
+﻿using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
+using Lykke.Job.ExchangePolling.Core.Settings.SlackNotifications;
 
-namespace Lykke.Job.LykkeJob.Core.Settings
+namespace Lykke.Job.ExchangePolling.Core.Settings
 {
     public class ExchangePollingSettings
     {

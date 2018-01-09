@@ -1,4 +1,4 @@
-﻿namespace Lykke.Job.LykkeJob.Core.Settings
+﻿namespace Lykke.Job.ExchangePolling.Core.Settings.JobSettings
 {
     public class ServicesSettings
     {

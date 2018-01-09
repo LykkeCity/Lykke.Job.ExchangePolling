@@ -1,4 +1,6 @@
-﻿namespace Lykke.Job.ExchangePolling.Core.Domain
+﻿using Lykke.Job.ExchangePolling.Core.Domain.Enums;
+
+namespace Lykke.Job.ExchangePolling.Core.Domain
 {
     public class Order
     {

@@ -1,20 +1,19 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml.Schema;
 using Common.Log;
+using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Domain;
+using Lykke.Job.ExchangePolling.Core.Domain.Enums;
+using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Services.Caches;
-using Lykke.Job.LykkeJob.Contract;
-using Lykke.Job.LykkeJob.Core.Services;
 using Lykke.Service.ExchangeConnector.Client;
+using Instrument = Lykke.Job.ExchangePolling.Core.Domain.Instrument;
 
-namespace Lykke.Job.LykkeJob.Services
+namespace Lykke.Job.ExchangePolling.Services.Services
 {
     public class ExchangePollingService : IExchangePollingService
     {
