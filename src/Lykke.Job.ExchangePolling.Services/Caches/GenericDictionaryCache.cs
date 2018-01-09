@@ -46,7 +46,7 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
             
             lock (LockObj)
             {
-                _cache[item.GetKey] = item;
+                _cache[item.GetKey] = (T)item.Clone();
             }
         }
 
@@ -57,7 +57,7 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
             
             lock (LockObj)
             {
-                items.Where(x => x != null).ForEach(x => _cache[x.GetKey] = x);
+                items.Where(x => x != null).ForEach(x => _cache[x.GetKey] = (T)x.Clone());
             }
         }
 

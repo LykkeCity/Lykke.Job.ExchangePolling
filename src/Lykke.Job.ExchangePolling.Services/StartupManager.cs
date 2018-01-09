@@ -25,6 +25,8 @@ namespace Lykke.Job.ExchangePolling.Services
         private readonly IQuoteCache _quoteCache;
 
         private readonly IGenericBlobRepository _genericBlobRepository;
+
+        private readonly IHedgingServiceClient _hedgingServiceClient;
         
         private readonly ILog _log;
 
@@ -34,12 +36,16 @@ namespace Lykke.Job.ExchangePolling.Services
             
             IGenericBlobRepository genericBlobRepository,
             
+            IHedgingServiceClient hedgingServiceClient,
+            
             ILog log)
         {
             _exchangeCache = exchangeCache;
             _quoteCache = quoteCache;
             
             _genericBlobRepository = genericBlobRepository;
+
+            _hedgingServiceClient = hedgingServiceClient;
             
             _log = log;
         }
@@ -50,24 +56,30 @@ namespace Lykke.Job.ExchangePolling.Services
         /// <returns></returns>
         public async Task StartAsync()
         {
-            //initialize prices from MM API
-            //IMtMarketMakerClient a; a.ExtPriceStatus.List()
-            
-            var quotes = new List<ExchangeInstrumentQuote>();//TODO get quotes here
+            /*
+            var quotes = new List<ExchangeInstrumentQuote>(); //get quotes here
             _quoteCache.Initialize(quotes);
             await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync),
                 $"QuotesCached initialized with quotes from: {string.Join(", ", quotes.Select(x => x.ExchangeName))}");
+            */
             
             //initialize ExchangeCache
-            var savedExchanges =
-                await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,
-                    Constants.BlobExchangesCache);
-            //TODO substitute exchange positions with ones from Hedging System API
-            //IHedgingServiceClient a;a.HedgingPosition.
+            var savedExchanges = await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,
+                Constants.BlobExchangesCache);
+            var currentHedgingPositions = await _hedgingServiceClient.ExternalPositions.List();
             
-            _exchangeCache.Initialize(savedExchanges);
+            var cachedData = _exchangeCache.Initialize(savedExchanges, currentHedgingPositions
+                .GroupBy(x => x.Exchange)
+                .ToDictionary(x => x.Key, x => x.Select(Position.Create).ToList()));
+            
+            //save old blob data
+            await _genericBlobRepository.Write(Constants.BlobContainerName, 
+                $"{Constants.BlobExchangesCache}_{DateTime.UtcNow:s}", savedExchanges);
+            //write new blob data
+            await _genericBlobRepository.Write(Constants.BlobContainerName, Constants.BlobExchangesCache, cachedData);
+            
             await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync), 
-                $"ExchangeCache initialized with data of: {savedExchanges?.Count.ToString() ?? "null"} echanges.", DateTime.UtcNow);
+                $"ExchangeCache initialized with data of: {cachedData?.Count.ToString() ?? "null"} echanges.", DateTime.UtcNow);
             
             await Task.CompletedTask;
         }

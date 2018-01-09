@@ -58,7 +58,7 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
             if(_cache[item.GetPartitionKey] == null)
                 _cache[item.GetPartitionKey] = new Dictionary<string, T>();
 
-            _cache[item.GetPartitionKey][item.GetRowKey] = item;
+            _cache[item.GetPartitionKey][item.GetRowKey] = (T)item.Clone();
         }
 
         public void Set(T item)

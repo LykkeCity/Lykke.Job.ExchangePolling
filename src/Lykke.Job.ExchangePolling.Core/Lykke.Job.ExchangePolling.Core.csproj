@@ -17,5 +17,8 @@
     <Reference Include="Lykke.Service.ExchangeConnector.Client, Version=1.0.5.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\..\..\..\Users\a.andreev\.nuget\packages\lykke.service.exchangeconnector.client\1.0.5-beta\lib\netcoreapp2.0\Lykke.Service.ExchangeConnector.Client.dll</HintPath>
     </Reference>
+    <Reference Include="MarginTrading.RiskManagement.HedgingService.Contracts, Version=1.2.13.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\..\..\..\Users\a.andreev\.nuget\packages\lykke.margintrading.riskmanagement.hedgingservice.contracts\1.2.13\lib\netstandard2.0\MarginTrading.RiskManagement.HedgingService.Contracts.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>

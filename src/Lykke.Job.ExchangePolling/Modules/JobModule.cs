@@ -18,6 +18,7 @@ using Lykke.Job.ExchangePolling.PeriodicalHandlers;
 using Lykke.Job.ExchangePolling.RabbitPublishers;
 using Lykke.Job.ExchangePolling.RabbitSubscribers;
 using Lykke.Job.ExchangePolling.Services;
+using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Rest;
 

@@ -1,9 +1,17 @@
-﻿using Lykke.Job.ExchangePolling.Core.Domain;
+﻿using System.Collections.Generic;
+using Lykke.Job.ExchangePolling.Core.Domain;
 
 namespace Lykke.Job.ExchangePolling.Core.Caches
 {
     public interface IExchangeCache : IGenericDictionaryCache<Exchange>
     {
-        
+        /// <summary>
+        /// Initializes cache from saved state, substituting position with ones from Hedging Service.
+        /// Returns new state of cache to be saved to blob.
+        /// </summary>
+        /// <param name="savedCache"></param>
+        /// <param name="positionsFromHedging"></param>
+        IReadOnlyList<Exchange> Initialize(IEnumerable<Exchange> savedCache,
+            Dictionary<string, List<Position>> positionsFromHedging);
     }
 }

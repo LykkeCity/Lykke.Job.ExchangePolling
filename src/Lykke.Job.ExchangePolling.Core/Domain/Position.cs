@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Lykke.Service.ExchangeConnector.Client.Models;
+using MarginTrading.RiskManagement.HedgingService.Contracts.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Lykke.Job.ExchangePolling.Core.Domain
@@ -55,6 +56,30 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
                 AvailableMargin = (decimal?)positionModel.AvailableMargin,
                 InitialMarginRequirement = (decimal)positionModel.InitialMarginRequirement,
                 MaintenanceMarginRequirement = (decimal)positionModel.MaintenanceMarginRequirement
+            };
+        }
+
+        public static Position Create(ExternalPositionModel positionModel)
+        {
+            return new Position
+            {
+                Symbol = positionModel.Symbol,
+                PositionVolume = (decimal)positionModel.PositionVolume,
+                MaintMarginUsed = (decimal)positionModel.MaintMarginUsed,
+                RealisedPnL = (decimal)positionModel.RealisedPnL,
+                UnrealisedPnL = (decimal)positionModel.UnrealisedPnL,
+                Value = (decimal?)positionModel.Value,
+                AvailableMargin = (decimal?)positionModel.AvailableMargin,
+                InitialMarginRequirement = (decimal)positionModel.InitialMarginRequirement,
+                MaintenanceMarginRequirement = (decimal)positionModel.MaintenanceMarginRequirement
+            };
+        }
+
+        public Position Merge(Position hedgingPosition)
+        {
+            return hedgingPosition?.Clone() ?? new Position
+            {
+                Symbol = this.Symbol
             };
         }
     }

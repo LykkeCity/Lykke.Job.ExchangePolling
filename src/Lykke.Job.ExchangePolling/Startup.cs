@@ -15,6 +15,7 @@ using Lykke.Job.LykkeJob.Modules;
 using Lykke.Logs;
 using Lykke.SettingsReader;
 using Lykke.SlackNotification.AzureQueue;
+using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
 #if azurequeuesub
 using Lykke.JobTriggers.Triggers;
 using System.Threading.Tasks;
@@ -64,6 +65,11 @@ namespace Lykke.Job.LykkeJob
 
                 builder.RegisterModule(new JobModule(appSettings.CurrentValue.ExchangePollingJob,
                     appSettings.Nested(x => x.ExchangePollingJob.Db), Log));
+
+                services.RegisterMtRiskManagementHedgingServiceClient(
+                    appSettings.CurrentValue.ExchangePollingJob.Services.AggregatedHedgingService.Url,
+                    appSettings.CurrentValue.ExchangePollingJob.Services.AggregatedHedgingService.ApiKey,
+                    nameof(ExchangePolling));
 
                 builder.Populate(services);
 
