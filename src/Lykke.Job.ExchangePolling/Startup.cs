@@ -6,6 +6,7 @@ using AzureStorage.Tables;
 using Common.Log;
 using Lykke.Common.ApiLibrary.Middleware;
 using Lykke.Common.ApiLibrary.Swagger;
+using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.PeriodicalHandlers;
 using Lykke.Job.LykkeJob.Core.Services;
 using Lykke.Job.LykkeJob.Core.Settings;
@@ -124,6 +125,11 @@ namespace Lykke.Job.LykkeJob
                 
                 //start periodic handlers
                 ApplicationContainer.Resolve<JfdPollingHandler>().Start();
+                //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
+                
+                //subscribe on rabbits
+                ApplicationContainer.Resolve<IRabbitMqSubscriber<ExchangeBestPrice>>().Subscribe(
+                    ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
                 
                 await Log.WriteMonitorAsync("", Program.EnvInfo, "Started");
             }

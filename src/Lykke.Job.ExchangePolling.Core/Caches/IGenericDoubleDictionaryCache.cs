@@ -2,9 +2,11 @@
 
 namespace Lykke.Job.ExchangePolling.Core.Caches
 {
-    public interface IGenericCache<T>
+    public interface IGenericDoubleDictionaryCache<T>
     {
-        T Get(string key);
+        T Get(string partitionKey, string rowKey);
+        
+        IReadOnlyList<T> Get(string partitionKey);
 
         IReadOnlyList<T> GetAll();
 
@@ -12,7 +14,7 @@ namespace Lykke.Job.ExchangePolling.Core.Caches
 
         void SetAll(IEnumerable<T> items);
 
-        void Clear(string key);
+        void Clear(string partitionKey, string rowKey);
 
         void ClearAll();
 

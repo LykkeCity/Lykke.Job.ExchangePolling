@@ -2,7 +2,7 @@
 
 namespace Lykke.Job.ExchangePolling.Core.Caches
 {
-    public interface IExchangeCache : IGenericDictionaryCache<Exchange>
+    public interface IQuoteCache : IGenericDoubleDictionaryCache<ExchangeInstrumentQuote>
     {
         
     }

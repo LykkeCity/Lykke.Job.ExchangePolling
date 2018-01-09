@@ -6,6 +6,7 @@ using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Schema;
+using Common.Log;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.ExchangePolling.Services.Caches;
@@ -19,22 +20,34 @@ namespace Lykke.Job.LykkeJob.Services
     {
         private readonly ExchangeCache _exchangeCache;
 
+        private readonly IQuoteService _quoteService;
+
         private readonly IExchangeConnectorService _exchangeConnectorService;
 
         private readonly IRabbitMqPublisher<ExecutionReport> _executionReportPublisher;
+
+        private readonly ILog _log;
         
         public ExchangePollingService(
             ExchangeCache exchangeCache,
             
+            IQuoteService quoteService,
+            
             IExchangeConnectorService exchangeConnectorService,
             
-            IRabbitMqPublisher<ExecutionReport> executionReportPublisher)
+            IRabbitMqPublisher<ExecutionReport> executionReportPublisher,
+            
+            ILog log)
         {
             _exchangeCache = exchangeCache;
+
+            _quoteService = quoteService;
 
             _exchangeConnectorService = exchangeConnectorService;
 
             _executionReportPublisher = executionReportPublisher;
+
+            _log = log;
         }
         
         public async Task Poll(string exchangeName, TimeSpan timeout)
@@ -44,7 +57,15 @@ namespace Lykke.Job.LykkeJob.Services
             var positions = ((IEnumerable<Lykke.Service.ExchangeConnector.Client.Models.PositionModel>)
                     await _exchangeConnectorService.GetOpenedPositionAsync(exchangeName, tokenSource.Token))
                 .Select(Position.Create).ToList();
+
+            //perform checking
+            var checkResults = CheckPositions(exchangeName, positions);
+
+            //if there's no quotes stop execution, and wait for actual quotes.
+            if (checkResults.Any(x => x == null))
+                return;
             
+            //create diff order for Risk System
             
         }
 
@@ -72,9 +93,17 @@ namespace Lykke.Job.LykkeJob.Services
 
         private ExecutedTrade CreateExecutedTrade(string exchangeName, string instrument, decimal diff)
         {
+            var quote = _quoteService.Get(exchangeName, instrument);
+            if (quote == null)
+            {
+                _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(CreateExecutedTrade), 
+                    $"Failed to get quotes on {exchangeName}: {instrument}. Stopped until next iteration.");
+                return null;
+            }
+            
             return new ExecutedTrade(new Instrument(exchangeName, instrument),
                 DateTime.UtcNow,
-                0, //where to get the price?
+                diff > 0 ? quote.Bid : quote.Ask,
                 diff,
                 diff > 0 ? TradeType.Buy : TradeType.Sell,
                 Constants.DiffOrderPrefix + Guid.NewGuid(),
@@ -84,7 +113,6 @@ namespace Lykke.Job.LykkeJob.Services
         /// <summary>
         /// Compare new and old position, and return the difference
         /// </summary>
-        /// <param name="instrument"></param>
         /// <param name="oldPosition"></param>
         /// <param name="newPosition"></param>
         /// <returns></returns>

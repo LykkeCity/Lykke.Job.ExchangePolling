@@ -13,8 +13,10 @@ using Lykke.SettingsReader;
 using Lykke.Job.LykkeJob.Contract;
 using Lykke.RabbitMq.Azure;
 using AzureStorage.Blob;
+using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.PeriodicalHandlers;
 using Lykke.Job.ExchangePolling.RabbitPublishers;
+using Lykke.Job.ExchangePolling.RabbitSubscribers;
 using Lykke.Job.ExchangePolling.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Rest;
@@ -63,15 +65,27 @@ namespace Lykke.Job.LykkeJob.Modules
                 .As<IShutdownManager>();
             
             RegisterPeriodicalHandlers(builder);
+            
+            RegisterRabbitMqSubscribers(builder);
 
             RegisterRabbitMqPublishers(builder);
+            
+            
 
             builder.RegisterType<ExchangePollingService>()
                 .As<IExchangePollingService>()
                 .SingleInstance();
 
+            builder.RegisterType<QuoteService>()
+                .As<IQuoteService>()
+                .SingleInstance();
+
             builder.RegisterType<ExchangeCache>()
                 .As<IExchangeCache>()
+                .SingleInstance();
+            
+            builder.RegisterType<QuoteCache>()
+                .As<IQuoteCache>()
                 .SingleInstance();
             
             builder.RegisterType<ExchangeConnectorService>()
@@ -88,8 +102,28 @@ namespace Lykke.Job.LykkeJob.Modules
             // TODO: You should register each periodical handler in DI container as IStartable singleton and autoactivate it
 
             builder.RegisterType<JfdPollingHandler>()
-                .WithParameter(TypedParameter.From(_settings.BitmexSettings.PollingPeriodMilliseconds))
+                .WithParameter(TypedParameter.From(_settings.JdfSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
+            builder.RegisterType<IcmPollingHandler>()
+                .WithParameter(TypedParameter.From(_settings.IcmSettings.PollingPeriodMilliseconds))
+                .SingleInstance();
+        }
+        
+        private void RegisterRabbitMqSubscribers(ContainerBuilder builder)
+        {
+            // TODO: You should register each subscriber in DI container as IStartable singleton and autoactivate it
+
+            builder.RegisterType<RabbitMqSubscriber<ExchangeBestPrice>>()
+                .As<IRabbitMqSubscriber<ExchangeBestPrice>>()
+                .SingleInstance()
+                .WithParameters(new[]
+                {
+                    new NamedParameter("connectionString", _settings.Rabbit.ExchangeConnectorOrder.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.Rabbit.ExchangeConnectorOrder.ExchangeName),
+                    new NamedParameter("queueName", _settings.Rabbit.ExchangeConnectorOrder.ExchangeName),
+                    new NamedParameter("isDurable", true),
+                    new NamedParameter("log", _log)
+                });
         }
 
         private void RegisterRabbitMqPublishers(ContainerBuilder builder)

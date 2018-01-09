@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.LykkeJob.Core.Services;
+using MarginTrading.MarketMaker.Contracts;
+using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
 
 namespace Lykke.Job.ExchangePolling.Services
 {
@@ -19,6 +22,7 @@ namespace Lykke.Job.ExchangePolling.Services
     public class StartupManager : IStartupManager
     {
         private readonly IExchangeCache _exchangeCache;
+        private readonly IQuoteCache _quoteCache;
 
         private readonly IGenericBlobRepository _genericBlobRepository;
         
@@ -26,32 +30,44 @@ namespace Lykke.Job.ExchangePolling.Services
 
         public StartupManager(
             IExchangeCache exchangeCache,
+            IQuoteCache quoteCache,
             
             IGenericBlobRepository genericBlobRepository,
             
             ILog log)
         {
             _exchangeCache = exchangeCache;
-
+            _quoteCache = quoteCache;
+            
             _genericBlobRepository = genericBlobRepository;
             
             _log = log;
         }
 
+        /// <summary>
+        /// Startup logic implementation.
+        /// </summary>
+        /// <returns></returns>
         public async Task StartAsync()
         {
-            // TODO: Implement your startup logic here. Good idea is to log every step
+            //initialize prices from MM API
+            //IMtMarketMakerClient a; a.ExtPriceStatus.List()
             
-            //TODO initialize prices
-            
+            var quotes = new List<ExchangeInstrumentQuote>();//TODO get quotes here
+            _quoteCache.Initialize(quotes);
+            await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync),
+                $"QuotesCached initialized with quotes from: {string.Join(", ", quotes.Select(x => x.ExchangeName))}");
             
             //initialize ExchangeCache
             var savedExchanges =
                 await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,
                     Constants.BlobExchangesCache);
-            await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync), 
-                $"ExchangeCache initialized with: {savedExchanges?.Count.ToString() ?? "null"} elements.", DateTime.UtcNow);
+            //TODO substitute exchange positions with ones from Hedging System API
+            //IHedgingServiceClient a;a.HedgingPosition.
+            
             _exchangeCache.Initialize(savedExchanges);
+            await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync), 
+                $"ExchangeCache initialized with data of: {savedExchanges?.Count.ToString() ?? "null"} echanges.", DateTime.UtcNow);
             
             await Task.CompletedTask;
         }

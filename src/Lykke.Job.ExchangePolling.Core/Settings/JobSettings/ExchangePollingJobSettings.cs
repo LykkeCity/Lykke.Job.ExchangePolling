@@ -8,6 +8,8 @@
         
         public ServicesSettings Services { get; set; }
         
-        public ExchangeSettings BitmexSettings { get; set; }
+        public ExchangeSettings JdfSettings { get; set; }
+        
+        public ExchangeSettings IcmSettings { get; set; }
     }
 }

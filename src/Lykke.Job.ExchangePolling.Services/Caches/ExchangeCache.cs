@@ -4,7 +4,7 @@ using Lykke.Job.ExchangePolling.Core.Domain;
 
 namespace Lykke.Job.ExchangePolling.Services.Caches
 {
-    public class ExchangeCache : GenericCache<Exchange>, IExchangeCache
+    public class ExchangeCache : GenericDictionaryCache<Exchange>, IExchangeCache
     {
         
     }

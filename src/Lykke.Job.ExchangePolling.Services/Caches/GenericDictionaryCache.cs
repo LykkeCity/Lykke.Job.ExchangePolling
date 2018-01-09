@@ -7,14 +7,18 @@ using MoreLinq;
 
 namespace Lykke.Job.ExchangePolling.Services.Caches
 {
-    public class GenericCache<T> : IGenericCache<T>
+    /// <summary>
+    /// Immutable thread-safe generic cache based on dictionary.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class GenericDictionaryCache<T> : IGenericDictionaryCache<T>
         where T: class, IKeyedObject, ICloneable
     {
         private Dictionary<string, T> _cache;
 
         private static readonly object LockObj = new object();
 
-        protected GenericCache()
+        protected GenericDictionaryCache()
         {
             ClearAll();
         }
@@ -31,7 +35,7 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
         {
            lock(LockObj)
            {
-               return _cache.Values.ToList();
+               return _cache.Values.Select(x => (T)x.Clone()).ToList();
            }
         }
 
