@@ -78,11 +78,9 @@ namespace Lykke.Job.ExchangePolling.Services
                 $"{Constants.BlobExchangesCache}_{DateTime.UtcNow:s}", savedExchanges);
             //write new blob data
             await _genericBlobRepository.Write(Constants.BlobContainerName, Constants.BlobExchangesCache, cachedData);
-            
+
             await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync), 
                 $"ExchangeCache initialized with data of: {cachedData?.Count.ToString() ?? "null"} echanges.", DateTime.UtcNow);
-            
-            await Task.CompletedTask;
         }
     }
 }

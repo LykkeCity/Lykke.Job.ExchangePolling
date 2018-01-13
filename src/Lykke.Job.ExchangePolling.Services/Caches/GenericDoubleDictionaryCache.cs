@@ -55,10 +55,13 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
 
         private void SetNoLock(T item)
         {
-            if(_cache[item.GetPartitionKey] == null)
+            if(!_cache.TryGetValue(item.GetPartitionKey, out var exchange))
+            {
                 _cache[item.GetPartitionKey] = new Dictionary<string, T>();
+                exchange = _cache[item.GetPartitionKey];
+            }
 
-            _cache[item.GetPartitionKey][item.GetRowKey] = (T)item.Clone();
+            exchange[item.GetRowKey] = (T)item.Clone();
         }
 
         public void Set(T item)

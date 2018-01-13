@@ -6,6 +6,8 @@ using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.ExchangePolling.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
+using Lykke.SettingsReader;
 
 namespace Lykke.Job.ExchangePolling.Services.Services
 {
@@ -15,14 +17,26 @@ namespace Lykke.Job.ExchangePolling.Services.Services
 
         private readonly ILog _log;
 
-        public QuoteService(IQuoteCache quoteCache, ILog log)
+        private readonly List<string> _requiredExchanges;
+
+        public QuoteService(IQuoteCache quoteCache, 
+            IReloadingManager<ExchangePollingJobSettings> settings,
+            ILog log)
         {
             _quoteCache = quoteCache;
             _log = log;
+
+            _requiredExchanges = typeof(ExchangePollingJobSettings).GetProperties()
+                .Where(x => x.PropertyType == typeof(ExchangeSettings))
+                .Select(x => ((ExchangeSettings)x.GetValue(settings.CurrentValue)).ExchangeName)
+                .ToList();
         }
 
         public async Task HandleQuote(OrderBook orderBook)
         {
+            if (_requiredExchanges.All(x => x != orderBook.Source))
+                return;
+            
             var bestPriceQuote = ConvertToBestPriceQuote(orderBook);
 
             if (string.IsNullOrEmpty(bestPriceQuote?.ExchangeName) || string.IsNullOrEmpty(bestPriceQuote.Instrument)

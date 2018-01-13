@@ -61,11 +61,11 @@ namespace Lykke.Job.ExchangePolling
 
                 var builder = new ContainerBuilder();
                 var appSettings = Configuration.LoadSettings<ExchangePollingSettings>();
-
+                
                 Log = CreateLogWithSlack(services, appSettings);
 
-                builder.RegisterModule(new JobModule(appSettings.CurrentValue.ExchangePollingJob,
-                    appSettings.Nested(x => x.ExchangePollingJob.Db), Environment.IsDevelopment(), Log));
+                builder.RegisterModule(new JobModule(appSettings.Nested(x => x.ExchangePollingJob),
+                    Environment.IsDevelopment(), Log));
 
                 services.RegisterMtRiskManagementHedgingServiceClient(
                     appSettings.CurrentValue.ExchangePollingJob.Services.AggregatedHedgingService.Url,
@@ -132,10 +132,11 @@ namespace Lykke.Job.ExchangePolling
                 
                 //start periodic handlers
                 ApplicationContainer.Resolve<JfdPollingHandler>().Start();
+                // await ApplicationContainer.Resolve<JfdPollingHandler>().Execute();
                 //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
                 
                 //subscribe on rabbits
-                ApplicationContainer.Resolve<OrderBookBtcUsdSubscriber>().Subscribe(
+                ApplicationContainer.Resolve<OrderBookSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
                 
                 await Log.WriteMonitorAsync("", Program.EnvInfo, "Started");
@@ -212,7 +213,7 @@ namespace Lykke.Job.ExchangePolling
                     $"LogsConnString {dbLogConnectionString} is not filled in settings");
 
             var persistenceManager = new LykkeLogToAzureStoragePersistenceManager(
-                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "LykkeJobLog", consoleLogger),
+                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "PollingJobLog", consoleLogger),
                 consoleLogger);
 
             // Creating slack notification service, which logs own azure queue processing messages to aggregate log

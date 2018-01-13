@@ -8,25 +8,33 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
 {
     public class ExchangeCache : GenericDictionaryCache<Exchange>, IExchangeCache
     {
-
-        public IReadOnlyList<Exchange> Initialize(IEnumerable<Exchange> savedCache,
+        public IReadOnlyList<Exchange> Initialize(IReadOnlyCollection<Exchange> savedCache,
             Dictionary<string, List<Position>> allPositionsFromHedging)
         {
-            //substitute exchange positions with ones from Hedging System API
-            var preparedCache = savedCache.Select(exchange =>
-            {
-                allPositionsFromHedging.TryGetValue(exchange.Name, out var positionsFromHedging);
-                var mergedPositions = exchange.Positions.Select(pos =>
-                    pos.Merge(positionsFromHedging?.FirstOrDefault(y => y.Symbol == pos.Symbol))
-                    ).ToList();
-                
-                exchange.Positions = mergedPositions;
-                
-                return exchange;
-            }).ToList();
-            
+            var preparedCache = new List<Exchange>();
+            //loop over exchange names
+            savedCache.Select(x => x.Name).Concat(allPositionsFromHedging.Keys).Distinct()
+                .ForEach(exchange =>
+                {
+                    allPositionsFromHedging.TryGetValue(exchange, out var positionsFromHedging);
+
+                    var savedExchange = savedCache.FirstOrDefault(x => x.Name == exchange);
+                    var instruments = (savedExchange?.Positions?.Select(x => x.Symbol).ToList() ?? new List<string>())
+                        .Concat(positionsFromHedging?.Select(x => x.Symbol) ?? new string[0])
+                        .Distinct();
+
+                    //merge positions in each instrument
+                    var preparedPositions = instruments.Select(symbol => Position.Merge(
+                        savedExchange?.Positions?.FirstOrDefault(x => x.Symbol == symbol),
+                        positionsFromHedging?.FirstOrDefault(y => y.Symbol == symbol))).ToList();
+
+                    var preparedExchange = savedExchange ?? new Exchange(exchange);
+                    preparedExchange.Positions = preparedPositions;
+                    preparedCache.Add(preparedExchange);
+                });
+
             base.Initialize(preparedCache);
-            
+
             return preparedCache;
         }
     }

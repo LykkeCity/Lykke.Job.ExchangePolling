@@ -5,6 +5,11 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
 {
     public class ExchangeInstrumentQuote : IDoubleKeyedObject, ICloneable
     {
+        public ExchangeInstrumentQuote()
+        {
+            Timestamp = DateTime.UtcNow;
+        }
+        
         public string ExchangeName { get; set; }
         
         public string Instrument { get; set; }
@@ -16,6 +21,8 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
         public decimal Bid { get; set; }
         
         public decimal Ask { get; set; }
+        
+        public DateTime Timestamp { get; private set; }
 
         public string GetPartitionKey => ExchangeName;
 
@@ -30,7 +37,8 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
                 Base = this.Base,
                 Quote = this.Quote,
                 Bid = this.Bid,
-                Ask = this.Ask
+                Ask = this.Ask,
+                Timestamp = this.Timestamp
             };
         }
     }

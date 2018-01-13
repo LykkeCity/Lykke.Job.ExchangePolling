@@ -6,7 +6,7 @@
 
         public static string DiffOrderPrefix = "POSITION_CONTROL_POLLING_";
 
-        public static string BlobContainerName = "ExchangePollingJob";
+        public static string BlobContainerName = "exchangepollingjob";
         public static string BlobExchangesCache = "ExchangesCache";
     }
 }

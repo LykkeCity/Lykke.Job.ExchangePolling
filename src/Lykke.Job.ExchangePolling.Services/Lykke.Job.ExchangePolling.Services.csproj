@@ -7,10 +7,10 @@
     <ProjectReference Include="..\Lykke.Job.ExchangePolling.Core\Lykke.Job.ExchangePolling.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Lykke.Common" Version="3.2.0" />
+    <PackageReference Include="Lykke.Common" Version="4.1.0" />
     <PackageReference Include="Lykke.MarginTrading.MarketMaker.Contracts" Version="1.0.12" />
     <PackageReference Include="Lykke.MarginTrading.RiskManagement.HedgingService.Contracts" Version="1.2.13" />
-    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.5-beta" />
+    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.6" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MarginTrading.DataReaderClient, Version=1.0.14.0, Culture=neutral, PublicKeyToken=null">

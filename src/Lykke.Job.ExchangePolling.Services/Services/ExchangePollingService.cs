@@ -6,35 +6,43 @@ using System.Threading.Tasks;
 using Common.Log;
 using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core;
+using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.ExchangePolling.Core.Domain.Enums;
 using Lykke.Job.ExchangePolling.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.Job.ExchangePolling.Services.Caches;
 using Lykke.Service.ExchangeConnector.Client;
+using Lykke.SettingsReader;
+using MoreLinq;
 using Instrument = Lykke.Job.ExchangePolling.Core.Domain.Instrument;
 
 namespace Lykke.Job.ExchangePolling.Services.Services
 {
     public class ExchangePollingService : IExchangePollingService
     {
-        private readonly ExchangeCache _exchangeCache;
+        private readonly IExchangeCache _exchangeCache;
 
         private readonly IQuoteService _quoteService;
 
         private readonly IExchangeConnectorService _exchangeConnectorService;
 
         private readonly IRabbitMqPublisher<ExecutionReport> _executionReportPublisher;
+        
+        private readonly IReloadingManager<ExchangePollingJobSettings> _settings;
 
         private readonly ILog _log;
         
         public ExchangePollingService(
-            ExchangeCache exchangeCache,
+            IExchangeCache exchangeCache,
             
             IQuoteService quoteService,
             
             IExchangeConnectorService exchangeConnectorService,
             
             IRabbitMqPublisher<ExecutionReport> executionReportPublisher,
+            
+            IReloadingManager<ExchangePollingJobSettings> settings,
             
             ILog log)
         {
@@ -46,67 +54,103 @@ namespace Lykke.Job.ExchangePolling.Services.Services
 
             _executionReportPublisher = executionReportPublisher;
 
+            _settings = settings;
+
             _log = log;
         }
         
         public async Task Poll(string exchangeName, TimeSpan timeout)
         {
             var tokenSource = new CancellationTokenSource(timeout);
-
-            var positions = ((IEnumerable<Lykke.Service.ExchangeConnector.Client.Models.PositionModel>)
-                    await _exchangeConnectorService.GetOpenedPositionAsync(exchangeName, tokenSource.Token))
-                .Select(Position.Create).ToList();
-
+            List<Position> positions = null;
+            
+            try
+            {
+                positions = (await _exchangeConnectorService.GetOpenedPositionAsync(exchangeName, tokenSource.Token))
+                    .Select(Position.Create).ToList();
+            }
+            catch (Exception ex)
+            {
+                await _log.WriteErrorAsync(nameof(ExchangePollingService), nameof(Poll), ex, DateTime.UtcNow);
+                //TODO consider slack notification here
+                return;
+            }
+            
             //perform checking
             var checkResults = CheckPositions(exchangeName, positions);
-
-            //if there's no quotes stop execution, and wait for actual quotes.
-            if (checkResults.Any(x => x == null))
-                return;
             
             //create diff order for Risk System
+            var executedTrades = checkResults
+                .Select(x => CreateExecutionReport(exchangeName, x.Item1, x.Item2))
+                //do nothing if there's no quotes on any instrument, and wait for actual quotes.
+                .Where(x => x != null);
+
+            //publish trades for Risk System
+            foreach (var executedTrade in executedTrades)
+                await _executionReportPublisher.Publish(executedTrade);
+            
+            //push published changes to cache
             
         }
 
         /// <summary>
-        /// Compare cached and new positions state, generate diff orders in case of divergence
+        /// Compare cached and new positions state, generate diff results in case of divergence
         /// </summary>
         /// <param name="exchangeName"></param>
         /// <param name="positions"></param>
         /// <returns></returns>
-        public IEnumerable<ExecutedTrade> CheckPositions(string exchangeName, IEnumerable<Position> positions)
+        private IEnumerable<(string instrument, decimal delta)> CheckPositions(string exchangeName, 
+            IEnumerable<Position> positions)
         {
             var exchange = _exchangeCache.Get(exchangeName);
+            if (exchange == null)
+            {
+                exchange = new Exchange(exchangeName);
+                _exchangeCache.Set(exchange);
+            }
+            
             var allInstruments = (positions ?? new List<Position>())
                 .Select(x => x.Symbol).Concat(exchange.Positions.Select(x => x.Symbol));
-            var checkResults = allInstruments.Select(instrument =>
+            
+            return allInstruments.Select(instrument =>
             {
                 var delta = CheckSinglePosition(
                     exchange.Positions.FirstOrDefault(p => p.Symbol == instrument),
                     positions?.FirstOrDefault(p => p.Symbol == instrument));
                 return (instrument, delta);
             }).Where(x => x.Item2 != 0);
-
-            return checkResults.Select(x => CreateExecutedTrade(exchangeName, x.Item1, x.Item2));
         }
 
-        private ExecutedTrade CreateExecutedTrade(string exchangeName, string instrument, decimal diff)
+        /// <summary>
+        /// Creates execution report for Risk System. Return null if there's no quotes.
+        /// </summary>
+        /// <param name="exchangeName"></param>
+        /// <param name="instrument"></param>
+        /// <param name="diff"></param>
+        /// <returns></returns>
+        private ExecutionReport CreateExecutionReport(string exchangeName, string instrument, decimal diff)
         {
             var quote = _quoteService.Get(exchangeName, instrument);
             if (quote == null)
             {
-                _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(CreateExecutedTrade), 
-                    $"Failed to get quotes on {exchangeName}: {instrument}. Stopped until next iteration.");
+                _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(CreateExecutionReport), 
+                    $"Failed to get quotes for {exchangeName}: {instrument}. Stopped until next iteration.");
                 return null;
             }
-            
-            return new ExecutedTrade(new Instrument(exchangeName, instrument),
+
+            var timeSpan = DateTime.UtcNow.Subtract(quote.Timestamp).TotalMilliseconds -
+                           _settings.CurrentValue.QuotesTtlMilliseconds;
+            if (timeSpan > 0)
+                _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(CreateExecutionReport), 
+                    $"Quotes are outdated for {exchangeName}: {instrument}. Last quote was {timeSpan} milliseconds ago.");
+
+            return new ExecutionReport(new Contract.Instrument(exchangeName, instrument),
                 DateTime.UtcNow,
                 diff > 0 ? quote.Bid : quote.Ask,
                 diff,
-                diff > 0 ? TradeType.Buy : TradeType.Sell,
+                diff > 0 ? Contract.Enums.TradeType.Buy : Contract.Enums.TradeType.Sell,
                 Constants.DiffOrderPrefix + Guid.NewGuid(),
-                ExecutionStatus.Fill);
+                Contract.Enums.OrderExecutionStatus.Fill);
         }
 
         /// <summary>

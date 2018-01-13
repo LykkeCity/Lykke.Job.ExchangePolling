@@ -2,8 +2,10 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
+using Lykke.Job.ExchangePolling.AzureRepositories;
 using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core.Caches;
+using Lykke.Job.ExchangePolling.Core.Repositories;
 using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.Job.ExchangePolling.PeriodicalHandlers;
@@ -21,8 +23,7 @@ namespace Lykke.Job.ExchangePolling.Modules
 {
     public class JobModule : Module
     {
-        private readonly ExchangePollingJobSettings _settings;
-        private readonly IReloadingManager<DbSettings> _dbSettingsManager;
+        private readonly IReloadingManager<ExchangePollingJobSettings> _settings;
         private readonly bool _isDevelopment;
 
         private readonly ILog _log;
@@ -30,13 +31,11 @@ namespace Lykke.Job.ExchangePolling.Modules
         // NOTE: you can remove it if you don't need to use IServiceCollection extensions to register service specific dependencies
         private readonly IServiceCollection _services;
 
-        public JobModule(ExchangePollingJobSettings settings, 
-            IReloadingManager<DbSettings> dbSettingsManager,
+        public JobModule(IReloadingManager<ExchangePollingJobSettings> settings,
             bool isDevelopment, 
             ILog log)
         {
             _settings = settings;
-            _dbSettingsManager = dbSettingsManager;
             _isDevelopment = isDevelopment;
             _log = log;
 
@@ -51,6 +50,10 @@ namespace Lykke.Job.ExchangePolling.Modules
             //  .As<IQuotesPublisher>()
             //  .WithParameter(TypedParameter.From(_settings.Rabbit.ConnectionString))
 
+            builder.RegisterInstance(_settings)
+                .As<IReloadingManager<ExchangePollingJobSettings>>()
+                .SingleInstance();
+            
             builder.RegisterInstance(_log)
                 .As<ILog>()
                 .SingleInstance();
@@ -70,8 +73,10 @@ namespace Lykke.Job.ExchangePolling.Modules
             RegisterRabbitMqSubscribers(builder);
 
             RegisterRabbitMqPublishers(builder);
-            
-            
+
+            builder.Register<IGenericBlobRepository>(ctx =>
+                    new GenericBlobRepository(_settings.Nested(x => x.Db.BlobConnString)))
+                .SingleInstance();
 
             builder.RegisterType<ExchangePollingService>()
                 .As<IExchangePollingService>()
@@ -91,8 +96,11 @@ namespace Lykke.Job.ExchangePolling.Modules
             
             builder.RegisterType<ExchangeConnectorService>()
                 .As<IExchangeConnectorService>()
-                .WithParameter("baseUri", new Uri(_settings.Services.ExchangeConnectorService.Url))
-                .WithParameter("credentials", new TokenCredentials(_settings.Services.ExchangeConnectorService.ApiKey))
+                .WithParameter("settings",new ExchangeConnectorServiceSettings
+                {
+                    ServiceUrl = _settings.CurrentValue.Services.ExchangeConnectorService.Url,
+                    ApiKey = _settings.CurrentValue.Services.ExchangeConnectorService.ApiKey
+                })
                 .SingleInstance();
             
             builder.Populate(_services);
@@ -101,41 +109,37 @@ namespace Lykke.Job.ExchangePolling.Modules
         private void RegisterPeriodicalHandlers(ContainerBuilder builder)
         {
             builder.RegisterType<JfdPollingHandler>()
-                .WithParameter(TypedParameter.From(_settings.JdfSettings.PollingPeriodMilliseconds))
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.JfdSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
             builder.RegisterType<IcmPollingHandler>()
-                .WithParameter(TypedParameter.From(_settings.IcmSettings.PollingPeriodMilliseconds))
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.IcmSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
         }
         
         private void RegisterRabbitMqSubscribers(ContainerBuilder builder)
         {
-            builder.RegisterType<OrderBookBtcUsdSubscriber>()
+            builder.RegisterType<OrderBookSubscriber>()
                 .AsSelf()
                 .SingleInstance()
                 .WithParameters(new[]
                 {
-                    new NamedParameter("connectionString", _settings.Rabbit.ExchangeConnectorQuotesBTCUSD.ConnectionString),
-                    new NamedParameter("exchangeName", _settings.Rabbit.ExchangeConnectorQuotesBTCUSD.ExchangeName),
-                    new NamedParameter("queueName", _settings.Rabbit.ExchangeConnectorQuotesBTCUSD.ExchangeName),
-                    new NamedParameter("isDurable", !_isDevelopment),
+                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotesBTCUSD.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotesBTCUSD.ExchangeName),
+                    new NamedParameter("queueName", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotesBTCUSD.QueueName),
+                    new NamedParameter("isDurable", false),//!_isDevelopment),
                     new NamedParameter("log", _log)
                 });
         }
 
         private void RegisterRabbitMqPublishers(ContainerBuilder builder)
         {
-            // TODO: You should register each publisher in DI container as publisher specific interface and as IStartable,
-            // as singleton and do not autoactivate it
-
             builder.RegisterType<RabbitMqPublisher<ExecutionReport>>()
                 .As<IRabbitMqPublisher<ExecutionReport>>()
-                .As<IStartable>()
                 .SingleInstance()
                 .WithParameters(new[]
                 {
-                    new NamedParameter("connectionString", _settings.Rabbit.ExchangeConnectorOrder.ConnectionString),
-                    new NamedParameter("exchangeName", _settings.Rabbit.ExchangeConnectorOrder.ExchangeName),
+                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.ExchangeName),
                     new NamedParameter("enabled", true),
                     new NamedParameter("log", _log)
                 });

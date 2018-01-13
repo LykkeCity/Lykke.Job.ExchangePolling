@@ -11,7 +11,7 @@ namespace Lykke.Job.ExchangePolling.Core.Caches
         /// </summary>
         /// <param name="savedCache"></param>
         /// <param name="positionsFromHedging"></param>
-        IReadOnlyList<Exchange> Initialize(IEnumerable<Exchange> savedCache,
+        IReadOnlyList<Exchange> Initialize(IReadOnlyCollection<Exchange> savedCache,
             Dictionary<string, List<Position>> positionsFromHedging);
     }
 }

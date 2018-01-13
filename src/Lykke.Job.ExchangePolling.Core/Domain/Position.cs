@@ -75,11 +75,14 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
             };
         }
 
-        public Position Merge(Position hedgingPosition)
+        public static Position Merge(Position savedPosition, Position hedgingPosition)
         {
+            if (savedPosition == null && hedgingPosition == null)
+                return null;
+            
             return hedgingPosition?.Clone() ?? new Position
             {
-                Symbol = this.Symbol
+                Symbol = savedPosition?.Symbol
             };
         }
     }
