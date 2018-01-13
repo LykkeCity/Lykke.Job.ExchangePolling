@@ -130,14 +130,15 @@ namespace Lykke.Job.ExchangePolling
 
                 await ApplicationContainer.Resolve<IStartupManager>().StartAsync();
                 
-                //start periodic handlers
-                ApplicationContainer.Resolve<JfdPollingHandler>().Start();
-                // await ApplicationContainer.Resolve<JfdPollingHandler>().Execute();
-                //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
-                
                 //subscribe on rabbits
                 ApplicationContainer.Resolve<OrderBookSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                
+                //start periodic handlers
+                ApplicationContainer.Resolve<JfdPollingHandler>().Start();
+                //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
+                ApplicationContainer.Resolve<DataSavingHandler>().Start();
                 
                 await Log.WriteMonitorAsync("", Program.EnvInfo, "Started");
             }

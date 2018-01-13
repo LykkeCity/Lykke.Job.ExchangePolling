@@ -6,6 +6,7 @@ using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.ExchangePolling.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Settings;
 using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.SettingsReader;
 
@@ -26,10 +27,7 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             _quoteCache = quoteCache;
             _log = log;
 
-            _requiredExchanges = typeof(ExchangePollingJobSettings).GetProperties()
-                .Where(x => x.PropertyType == typeof(ExchangeSettings))
-                .Select(x => ((ExchangeSettings)x.GetValue(settings.CurrentValue)).ExchangeName)
-                .ToList();
+            _requiredExchanges = settings.CurrentValue.GetHandledExchanges().ToList();
         }
 
         public async Task HandleQuote(OrderBook orderBook)

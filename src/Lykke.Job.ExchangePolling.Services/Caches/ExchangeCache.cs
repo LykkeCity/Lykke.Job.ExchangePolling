@@ -8,6 +8,17 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
 {
     public class ExchangeCache : GenericDictionaryCache<Exchange>, IExchangeCache
     {
+        public Exchange GetOrCreate(string exchangeName)
+        {
+            var exchange = this.Get(exchangeName);
+            if (exchange == null)
+            {
+                exchange = new Exchange(exchangeName);
+                this.Set(exchange);
+            }
+            return exchange;
+        }
+        
         public IReadOnlyList<Exchange> Initialize(IReadOnlyCollection<Exchange> savedCache,
             Dictionary<string, List<Position>> allPositionsFromHedging)
         {

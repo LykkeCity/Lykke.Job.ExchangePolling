@@ -12,6 +12,8 @@
         
         public ExchangeSettings IcmSettings { get; set; }
         
+        public int DataSavingPeriodMilliseconds { get; set; }
+        
         public int QuotesTtlMilliseconds { get; set; }
     }
 }

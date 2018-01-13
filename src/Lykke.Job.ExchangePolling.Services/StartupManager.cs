@@ -8,8 +8,12 @@ using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.ExchangePolling.Core.Repositories;
 using Lykke.Job.ExchangePolling.Core.Services;
+using Lykke.Job.ExchangePolling.Core.Settings;
+using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
+using Lykke.SettingsReader;
 using MarginTrading.MarketMaker.Contracts;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
+using MarginTrading.RiskManagement.HedgingService.Contracts.Models;
 
 namespace Lykke.Job.ExchangePolling.Services
 {
@@ -31,6 +35,8 @@ namespace Lykke.Job.ExchangePolling.Services
         
         private readonly ILog _log;
 
+        private readonly List<string> _requiredExchanges;
+
         public StartupManager(
             IExchangeCache exchangeCache,
             IQuoteCache quoteCache,
@@ -38,6 +44,8 @@ namespace Lykke.Job.ExchangePolling.Services
             IGenericBlobRepository genericBlobRepository,
             
             IHedgingServiceClient hedgingServiceClient,
+            
+            IReloadingManager<ExchangePollingJobSettings> settings,
             
             ILog log)
         {
@@ -49,6 +57,8 @@ namespace Lykke.Job.ExchangePolling.Services
             _hedgingServiceClient = hedgingServiceClient;
             
             _log = log;
+
+            _requiredExchanges = settings.CurrentValue.GetHandledExchanges().ToList();
         }
 
         /// <summary>
@@ -57,21 +67,29 @@ namespace Lykke.Job.ExchangePolling.Services
         /// <returns></returns>
         public async Task StartAsync()
         {
-            /*
-            var quotes = new List<ExchangeInstrumentQuote>(); //get quotes here
-            _quoteCache.Initialize(quotes);
-            await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync),
-                $"QuotesCached initialized with quotes from: {string.Join(", ", quotes.Select(x => x.ExchangeName))}");
-            */
-            
-            //initialize ExchangeCache
+            //read last saved cache
             var savedExchanges = await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,
                 Constants.BlobExchangesCache);
-            var currentHedgingPositions = await _hedgingServiceClient.ExternalPositions.List();
             
-            var cachedData = _exchangeCache.Initialize(savedExchanges, currentHedgingPositions
-                .GroupBy(x => x.Exchange)
-                .ToDictionary(x => x.Key, x => x.Select(Position.Create).ToList()));
+            //retrieve current hedging positions
+            IReadOnlyList<ExternalPositionModel> currentHedgingPositions = null;
+            try
+            {
+                currentHedgingPositions = await _hedgingServiceClient.ExternalPositions.List();
+            }
+            catch (Exception ex)
+            {
+                await _log.WriteFatalErrorAsync(nameof(StartupManager), nameof(StartAsync), ex, DateTime.UtcNow);
+                throw;
+            }
+
+            //initialize ExchangeCache
+            var cachedData = _exchangeCache.Initialize(savedExchanges,
+                currentHedgingPositions?
+                    .Where(x => _requiredExchanges.Any(exch => exch == x.Exchange))
+                    .GroupBy(x => x.Exchange)
+                    .ToDictionary(x => x.Key, x => x.Select(Position.Create).ToList())
+                ?? new Dictionary<string, List<Position>>());
             
             //save old blob data
             await _genericBlobRepository.Write(Constants.BlobContainerName, 
@@ -80,7 +98,7 @@ namespace Lykke.Job.ExchangePolling.Services
             await _genericBlobRepository.Write(Constants.BlobContainerName, Constants.BlobExchangesCache, cachedData);
 
             await _log.WriteInfoAsync(nameof(StartupManager), nameof(StartAsync), 
-                $"ExchangeCache initialized with data of: {cachedData?.Count.ToString() ?? "null"} echanges.", DateTime.UtcNow);
+                $"ExchangeCache initialized with data: {string.Join("; ",cachedData)}.", DateTime.UtcNow);
         }
     }
 }

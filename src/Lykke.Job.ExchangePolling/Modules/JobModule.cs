@@ -114,6 +114,10 @@ namespace Lykke.Job.ExchangePolling.Modules
             builder.RegisterType<IcmPollingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.IcmSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
+            
+            builder.RegisterType<DataSavingHandler>()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.DataSavingPeriodMilliseconds))
+                .SingleInstance();
         }
         
         private void RegisterRabbitMqSubscribers(ContainerBuilder builder)

@@ -64,6 +64,7 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             var tokenSource = new CancellationTokenSource(timeout);
             List<Position> positions = null;
             
+            //retrieve positions
             try
             {
                 positions = (await _exchangeConnectorService.GetOpenedPositionAsync(exchangeName, tokenSource.Token))
@@ -76,41 +77,47 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 return;
             }
             
+            var exchange = _exchangeCache.GetOrCreate(exchangeName);
+            
             //perform checking
-            var checkResults = CheckPositions(exchangeName, positions);
+            var checkResults = CheckPositions(exchange, positions);
             
             //create diff order for Risk System
             var executedTrades = checkResults
                 .Select(x => CreateExecutionReport(exchangeName, x.Item1, x.Item2))
                 //do nothing if there's no quotes on any instrument, and wait for actual quotes.
-                .Where(x => x != null);
+                .Where(x => x != null)
+                .ToList();
+
+            if (executedTrades.Count == 0)
+                return;
 
             //publish trades for Risk System
             foreach (var executedTrade in executedTrades)
                 await _executionReportPublisher.Publish(executedTrade);
+            await _log.WriteInfoAsync(nameof(ExchangePollingService), nameof(Poll),
+                    $"Execution report have been published for {exchangeName}: {string.Join(", ", executedTrades.Select(x => x.Instrument.Name))}",
+                    DateTime.UtcNow);
             
-            //push published changes to cache
-            
+            //update positions and push published changes to cache
+            exchange.UpdatePositions(positions.Where(x =>
+                executedTrades.Select(tr => tr.Instrument.Name).Any(instrument => instrument == x.Symbol)));
+            _exchangeCache.Set(exchange);
         }
 
         /// <summary>
         /// Compare cached and new positions state, generate diff results in case of divergence
         /// </summary>
-        /// <param name="exchangeName"></param>
+        /// <param name="exchange"></param>
         /// <param name="positions"></param>
         /// <returns></returns>
-        private IEnumerable<(string instrument, decimal delta)> CheckPositions(string exchangeName, 
+        private IEnumerable<(string instrument, decimal delta)> CheckPositions(Exchange exchange, 
             IEnumerable<Position> positions)
         {
-            var exchange = _exchangeCache.Get(exchangeName);
-            if (exchange == null)
-            {
-                exchange = new Exchange(exchangeName);
-                _exchangeCache.Set(exchange);
-            }
-            
             var allInstruments = (positions ?? new List<Position>())
-                .Select(x => x.Symbol).Concat(exchange.Positions.Select(x => x.Symbol));
+                .Select(x => x.Symbol)
+                .Concat(exchange.Positions.Select(x => x.Symbol))
+                .Distinct();
             
             return allInstruments.Select(instrument =>
             {

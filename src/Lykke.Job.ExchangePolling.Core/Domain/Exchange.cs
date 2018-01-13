@@ -33,5 +33,18 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
                 Positions = this.Positions?.Select(x => x.Clone()).ToList()
             };
         }
+
+        public void UpdatePositions(IEnumerable<Position> updatedPositions)
+        {
+            this.Positions = this.Positions.ToList()
+                .Where(x => updatedPositions.All(pos => pos.Symbol != x.Symbol))
+                .Concat(updatedPositions)
+                .ToList();
+        }
+
+        public override string ToString()
+        {
+            return $"{Name}: {string.Join(", ", Positions.Select(x => x.Symbol))}";
+        }
     }
 }
