@@ -76,10 +76,12 @@ namespace Lykke.Job.ExchangePolling.Services
             try
             {
                 currentHedgingPositions = await _hedgingServiceClient.ExternalPositions.List();
+                if (currentHedgingPositions == null)
+                    throw new Exception("Error retrieving data from Hedging System.");
             }
             catch (Exception ex)
             {
-                await _log.WriteFatalErrorAsync(nameof(StartupManager), nameof(StartAsync), ex, DateTime.UtcNow);
+                await _log.WriteFatalErrorAsync(nameof(StartupManager), "Retrieving hedging positions", ex, DateTime.UtcNow);
                 throw;
             }
 
