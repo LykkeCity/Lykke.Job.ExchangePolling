@@ -9,14 +9,14 @@ namespace Lykke.Job.ExchangePolling
     internal sealed class Program
     {
         public static string EnvInfo => Environment.GetEnvironmentVariable("ENV_INFO");
-
+        
         public static async Task Main(string[] args)
         {
             Console.WriteLine(
                 $"{PlatformServices.Default.Application.ApplicationName} version {PlatformServices.Default.Application.ApplicationVersion}");
 
             Console.WriteLine($"ENV_INFO: {EnvInfo}");
-
+            
             try
             {
                 var webHost = new WebHostBuilder()
