@@ -8,14 +8,11 @@ using Lykke.Job.ExchangePolling.Contract;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
-using Lykke.Job.ExchangePolling.Core.Domain.Enums;
 using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
-using Lykke.Job.ExchangePolling.Services.Caches;
 using Lykke.Service.ExchangeConnector.Client;
 using Lykke.SettingsReader;
-using MoreLinq;
-using Instrument = Lykke.Job.ExchangePolling.Core.Domain.Instrument;
+using Nito.AsyncEx;
 
 namespace Lykke.Job.ExchangePolling.Services.Services
 {
@@ -32,6 +29,8 @@ namespace Lykke.Job.ExchangePolling.Services.Services
         private readonly IReloadingManager<ExchangePollingJobSettings> _settings;
 
         private readonly ILog _log;
+
+        protected readonly AsyncLock _mutex = new AsyncLock();
         
         public ExchangePollingService(
             IExchangeCache exchangeCache,
@@ -58,22 +57,32 @@ namespace Lykke.Job.ExchangePolling.Services.Services
 
             _log = log;
         }
-        
+
         public async Task Poll(string exchangeName, TimeSpan timeout)
         {
             var tokenSource = new CancellationTokenSource(timeout);
+            
+            using (await _mutex.LockAsync())//tokenSource.Token))
+            {
+                await PollEntryPoint(exchangeName, tokenSource.Token);
+            }
+        }
+        
+        private async Task PollEntryPoint(string exchangeName, CancellationToken cancellationToken)
+        {
             List<Position> positions = null;
             
             //retrieve positions
             try
             {
-                positions = (await _exchangeConnectorService.GetOpenedPositionAsync(exchangeName, tokenSource.Token))
+                positions = (await _exchangeConnectorService.GetOpenedPositionAsync(exchangeName, cancellationToken))
                     .Select(Position.Create).ToList();
             }
             catch (Exception ex)
             {
-                await _log.WriteErrorAsync(nameof(ExchangePollingService), nameof(Poll), ex, DateTime.UtcNow);
-                //TODO consider slack notification here
+                await _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(Poll), 
+                    $"{exchangeName} exchange polling failed.", ex, DateTime.UtcNow);
+                //TODO consider sending slack notification here
                 return;
             }
             

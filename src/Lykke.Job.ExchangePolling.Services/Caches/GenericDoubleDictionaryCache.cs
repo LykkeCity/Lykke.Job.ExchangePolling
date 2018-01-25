@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Lykke.Job.ExchangePolling.Core.Caches;
-using Lykke.Job.ExchangePolling.Core.Domain;
 using MoreLinq;
 
 namespace Lykke.Job.ExchangePolling.Services.Caches
