@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Lykke.Job.ExchangePolling.Core.Caches;
-using Lykke.Job.ExchangePolling.Core.Domain;
 using MoreLinq;
 
 namespace Lykke.Job.ExchangePolling.Services.Caches
@@ -14,9 +13,9 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
     public class GenericDictionaryCache<T> : IGenericDictionaryCache<T>
         where T: class, IKeyedObject, ICloneable
     {
-        private Dictionary<string, T> _cache;
+        protected Dictionary<string, T> _cache;
 
-        private static readonly object LockObj = new object();
+        protected static readonly object LockObj = new object();
 
         protected GenericDictionaryCache()
         {
@@ -27,7 +26,9 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
         {
             lock (LockObj)
             {
-                return _cache.ContainsKey(key) ? (T)_cache[key].Clone() : null;
+                return _cache.TryGetValue(key, out var value)
+                    ? (T) value.Clone()
+                    : null;
             }
         }
 

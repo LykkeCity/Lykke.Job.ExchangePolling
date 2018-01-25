@@ -11,7 +11,6 @@ using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Core.Settings;
 using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.SettingsReader;
-using MarginTrading.MarketMaker.Contracts;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Models;
 

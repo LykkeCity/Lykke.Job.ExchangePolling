@@ -133,6 +133,8 @@ namespace Lykke.Job.ExchangePolling
                 //subscribe on rabbits
                 ApplicationContainer.Resolve<OrderBookSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
+                ApplicationContainer.Resolve<HedgingTradeSubscriber>().Subscribe(
+                    ApplicationContainer.Resolve<IOrderService>().HandleHedgingTrade);
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 
                 //start periodic handlers
@@ -214,8 +216,8 @@ namespace Lykke.Job.ExchangePolling
                     $"LogsConnString {dbLogConnectionString} is not filled in settings");
 
             var persistenceManager = new LykkeLogToAzureStoragePersistenceManager(
-                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, "PollingJobLog", consoleLogger),
-                consoleLogger);
+                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager,  
+                    $"{nameof(ExchangePolling)}JobLog", consoleLogger), consoleLogger);
 
             // Creating slack notification service, which logs own azure queue processing messages to aggregate log
             var slackService = services.UseSlackNotificationsSenderViaAzureQueue(

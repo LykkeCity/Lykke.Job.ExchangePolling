@@ -4,6 +4,6 @@ namespace Lykke.Job.ExchangePolling.Core.Settings.JobSettings
     {
         public RabbitMQConnectionParams ExchangeConnectorOrder { get; set; }
         
-        public RabbitMQConnectionParams ExchangeConnectorQuotesBTCUSD { get; set; }
+        public RabbitMQConnectionParams ExchangeConnectorQuotes { get; set; }
     }
 }
