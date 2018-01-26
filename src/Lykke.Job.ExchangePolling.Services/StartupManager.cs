@@ -11,7 +11,6 @@ using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Core.Settings;
 using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.SettingsReader;
-using MarginTrading.MarketMaker.Contracts;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Client;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Models;
 
@@ -66,6 +65,13 @@ namespace Lykke.Job.ExchangePolling.Services
         /// </summary>
         /// <returns></returns>
         public async Task StartAsync()
+        {
+            await InitializeExchangeCache();
+            
+            //TODO init list of !realtime exchanges from ExchangeConnector
+        }
+
+        private async Task InitializeExchangeCache()
         {
             //read last saved cache
             var savedExchanges = await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,

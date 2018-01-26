@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
@@ -6,6 +8,7 @@ using AzureStorage.Tables;
 using Common.Log;
 using Lykke.Common.ApiLibrary.Middleware;
 using Lykke.Common.ApiLibrary.Swagger;
+using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Core.Settings;
 using Lykke.Job.ExchangePolling.Models;
@@ -20,6 +23,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MoreLinq;
+
 #if azurequeuesub
 using Lykke.JobTriggers.Triggers;
 using System.Threading.Tasks;
@@ -133,10 +138,14 @@ namespace Lykke.Job.ExchangePolling
                 //subscribe on rabbits
                 ApplicationContainer.Resolve<OrderBookSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
+                ApplicationContainer.Resolve<HedgingTradeSubscriber>().Subscribe(
+                    ApplicationContainer.Resolve<IOrderService>().HandleHedgingTrade);
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 
                 //start periodic handlers
-                ApplicationContainer.Resolve<JfdPollingHandler>().Start();
+                ApplicationContainer.Resolve<IEnumerable<ExchangePollingHandler>>()
+                    .ForEach(handler => handler.Start());
+                //ApplicationContainer.Resolve<JfdPollingHandler>().Start();
                 //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
                 ApplicationContainer.Resolve<DataSavingHandler>().Start();
                 
@@ -214,9 +223,8 @@ namespace Lykke.Job.ExchangePolling
                     $"LogsConnString {dbLogConnectionString} is not filled in settings");
 
             var persistenceManager = new LykkeLogToAzureStoragePersistenceManager(
-                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager, 
-                    $"{nameof(ExchangePolling)}JobLog", consoleLogger),
-                consoleLogger);
+                AzureTableStorage<LogEntity>.Create(dbLogConnectionStringManager,  
+                    $"{nameof(ExchangePolling)}JobLog", consoleLogger), consoleLogger);
 
             // Creating slack notification service, which logs own azure queue processing messages to aggregate log
             var slackService = services.UseSlackNotificationsSenderViaAzureQueue(

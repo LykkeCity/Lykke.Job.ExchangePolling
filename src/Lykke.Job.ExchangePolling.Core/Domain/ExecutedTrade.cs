@@ -1,5 +1,4 @@
 ﻿using System;
-using Lykke.Job.ExchangePolling.Core.Domain;
 using Lykke.Job.ExchangePolling.Core.Domain.Enums;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -17,7 +16,7 @@ namespace Lykke.Job.ExchangePolling.Core.Domain
             Price = price;
             Volume = volume;
             Type = type;
-            Fee = 0; // TODO
+            Fee = 0;
             OrderId = orderId;
             Status = status;
         }

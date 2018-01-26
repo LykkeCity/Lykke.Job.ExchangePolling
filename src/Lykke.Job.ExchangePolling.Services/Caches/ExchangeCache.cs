@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
@@ -8,6 +9,16 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
 {
     public class ExchangeCache : GenericDictionaryCache<Exchange>, IExchangeCache
     {
+        private Exchange GetOrCreateNoLock(string exchangeName)
+        {
+            if (_cache.TryGetValue(exchangeName, out var exchange))
+                return (Exchange) exchange.Clone();
+           
+            exchange = new Exchange(exchangeName);
+            _cache[exchangeName] = exchange;
+            return exchange;
+        }
+        
         public Exchange GetOrCreate(string exchangeName)
         {
             var exchange = this.Get(exchangeName);
@@ -47,6 +58,21 @@ namespace Lykke.Job.ExchangePolling.Services.Caches
             base.Initialize(preparedCache);
 
             return preparedCache;
+        }
+
+        public void UpdatePosition(string exchangeName, string instrument, double tradeVolume)
+        {
+            lock (LockObj)
+            {
+                var exchange = GetOrCreateNoLock(exchangeName);
+                
+                var currentPosition = exchange.Positions.FirstOrDefault(x => x.Symbol == instrument)
+                                      ?? new Position {Symbol = instrument};
+                
+                currentPosition.PositionVolume += Convert.ToDecimal(tradeVolume);
+                
+                _cache[exchangeName] = exchange;
+            }
         }
     }
 }

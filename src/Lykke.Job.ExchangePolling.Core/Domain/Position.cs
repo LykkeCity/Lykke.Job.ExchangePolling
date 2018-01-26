@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Lykke.Service.ExchangeConnector.Client.Models;
+﻿using Lykke.Service.ExchangeConnector.Client.Models;
 using MarginTrading.RiskManagement.HedgingService.Contracts.Models;
-using Microsoft.Extensions.Logging;
 
 namespace Lykke.Job.ExchangePolling.Core.Domain
 {

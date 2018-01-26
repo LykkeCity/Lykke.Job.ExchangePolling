@@ -1,5 +1,4 @@
-﻿using System;
-using Autofac;
+﻿using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Common.Log;
 using Lykke.Job.ExchangePolling.AzureRepositories;
@@ -17,7 +16,6 @@ using Lykke.Job.ExchangePolling.Services.Services;
 using Lykke.Service.ExchangeConnector.Client;
 using Lykke.SettingsReader;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Rest;
 
 namespace Lykke.Job.ExchangePolling.Modules
 {
@@ -86,6 +84,10 @@ namespace Lykke.Job.ExchangePolling.Modules
                 .As<IQuoteService>()
                 .SingleInstance();
 
+            builder.RegisterType<OrderService>()
+                .As<IOrderService>()
+                .SingleInstance();
+
             builder.RegisterType<ExchangeCache>()
                 .As<IExchangeCache>()
                 .SingleInstance();
@@ -108,12 +110,13 @@ namespace Lykke.Job.ExchangePolling.Modules
 
         private void RegisterPeriodicalHandlers(ContainerBuilder builder)
         {
-            builder.RegisterType<JfdPollingHandler>()
+            
+            /*builder.RegisterType<JfdPollingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.JfdSettings.PollingPeriodMilliseconds))
                 .SingleInstance();
             builder.RegisterType<IcmPollingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.IcmSettings.PollingPeriodMilliseconds))
-                .SingleInstance();
+                .SingleInstance();*/
             
             builder.RegisterType<DataSavingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.DataSavingPeriodMilliseconds))
@@ -127,10 +130,22 @@ namespace Lykke.Job.ExchangePolling.Modules
                 .SingleInstance()
                 .WithParameters(new[]
                 {
-                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotesBTCUSD.ConnectionString),
-                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotesBTCUSD.ExchangeName),
-                    new NamedParameter("queueName", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotesBTCUSD.QueueName),
-                    new NamedParameter("isDurable", false),//!_isDevelopment),
+                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotes.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotes.ExchangeName),
+                    new NamedParameter("queueName", _settings.CurrentValue.Rabbit.ExchangeConnectorQuotes.QueueName),
+                    new NamedParameter("isDurable", false),
+                    new NamedParameter("log", _log)
+                });
+            
+            builder.RegisterType<HedgingTradeSubscriber>()
+                .AsSelf()
+                .SingleInstance()
+                .WithParameters(new[]
+                {
+                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.ExchangeName),
+                    new NamedParameter("queueName", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.QueueName),
+                    new NamedParameter("isDurable", !_isDevelopment),
                     new NamedParameter("log", _log)
                 });
         }

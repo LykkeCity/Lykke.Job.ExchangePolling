@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using AzureStorage;
 using AzureStorage.Blob;
 using Common;
-using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Repositories;
 using Lykke.SettingsReader;
 using Newtonsoft.Json;

@@ -36,7 +36,7 @@
     <PackageReference Include="Lykke.RabbitMq.Azure" Version="4.0.1" />
     <!-- #if rabbitpub -->
     <PackageReference Include="Lykke.RabbitMqBroker" Version="4.3.1" />
-    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.6" />
+    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.7" />
     <PackageReference Include="Lykke.SettingsReader" Version="1.1.4" />
     <!-- #endif -->
     <!-- #if rabbitpub || rabbitsub -->
