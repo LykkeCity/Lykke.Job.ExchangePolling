@@ -9,11 +9,19 @@ namespace Lykke.Job.ExchangePolling.Core.Services
     public interface IExchangePollingService
     {
         /// <summary>
-        /// Polling entry point
+        /// Polling entry point for non-realtime exchanges.
         /// </summary>
         /// <param name="exchangeName"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
-        Task Poll(string exchangeName, TimeSpan timeout);
+        Task PollNonStreamingExchange(string exchangeName, TimeSpan timeout);
+
+        /// <summary>
+        /// Polling entry point for position control long cycle ~1hour.
+        /// </summary>
+        /// <param name="exchangeName"></param>
+        /// <param name="timeout"></param>
+        /// <returns></returns>
+        Task PositionControlPoll(string exchangeName, TimeSpan timeout);
     }
 }

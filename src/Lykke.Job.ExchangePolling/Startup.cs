@@ -132,7 +132,6 @@ namespace Lykke.Job.ExchangePolling
             try
             {
                 // NOTE: Job not yet receive and process IsAlive requests here
-
                 await ApplicationContainer.Resolve<IStartupManager>().StartAsync();
                 
                 //subscribe on rabbits
@@ -143,10 +142,9 @@ namespace Lykke.Job.ExchangePolling
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 
                 //start periodic handlers
-                ApplicationContainer.Resolve<IEnumerable<ExchangePollingHandler>>()
-                    .ForEach(handler => handler.Start());
-                //ApplicationContainer.Resolve<JfdPollingHandler>().Start();
-                //ApplicationContainer.Resolve<IcmPollingHandler>().Start();
+                await ApplicationContainer.Resolve<NonStreamingExchangePollingHandler>().InitializeAndStart();
+                await ApplicationContainer.Resolve<PositionControlPollingHandler>().InitializeAndStart();
+
                 ApplicationContainer.Resolve<DataSavingHandler>().Start();
                 
                 await Log.WriteMonitorAsync("", Program.EnvInfo, "Started");

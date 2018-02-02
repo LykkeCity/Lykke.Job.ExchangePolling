@@ -7,7 +7,7 @@ using Lykke.RabbitMqBroker.Subscriber;
 
 namespace Lykke.Job.ExchangePolling.RabbitPublishers
 {
-    internal class RabbitMqPublisher<T> : IRabbitMqPublisher<T>, IDisposable
+    public class RabbitMqPublisher<T> : IRabbitMqPublisher<T>, IDisposable
     {
         private readonly bool _enabled;
         private readonly RabbitMqBroker.Publisher.RabbitMqPublisher<T> _rabbitPublisher;
