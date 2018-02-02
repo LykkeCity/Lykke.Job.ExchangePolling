@@ -11,7 +11,7 @@
     <PackageReference Include="Lykke.MarginTrading.DataReaderClient" Version="1.0.14" />
     <PackageReference Include="Lykke.MarginTrading.MarketMaker.Contracts" Version="1.0.12" />
     <PackageReference Include="Lykke.MarginTrading.RiskManagement.HedgingService.Contracts" Version="1.2.13" />
-    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.6" />
+    <PackageReference Include="Lykke.Service.ExchangeConnector.Client" Version="1.0.14" />
     <PackageReference Include="Nito.AsyncEx" Version="4.0.1" />
   </ItemGroup>
 </Project>

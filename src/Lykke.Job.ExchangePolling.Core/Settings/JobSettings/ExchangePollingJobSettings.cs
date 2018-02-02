@@ -8,11 +8,9 @@
         
         public ServicesSettings Services { get; set; }
         
-        public ExchangeSettings JfdSettings { get; set; }
+        public int NonStreamingPollingPeriodMilliseconds { get; set; }
         
-        public ExchangeSettings IcmSettings { get; set; }
-        
-        public int ExchangePollingPeriodMilliseconds { get; set; }
+        public int PositionControlPollingPeriodMilliseconds { get; set; }
         
         public int DataSavingPeriodMilliseconds { get; set; }
         

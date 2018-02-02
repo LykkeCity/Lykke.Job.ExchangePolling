@@ -110,13 +110,13 @@ namespace Lykke.Job.ExchangePolling.Modules
 
         private void RegisterPeriodicalHandlers(ContainerBuilder builder)
         {
-            
-            /*builder.RegisterType<JfdPollingHandler>()
-                .WithParameter(TypedParameter.From(_settings.CurrentValue.JfdSettings.PollingPeriodMilliseconds))
+            builder.RegisterType<NonStreamingExchangePollingHandler>()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.NonStreamingPollingPeriodMilliseconds))
                 .SingleInstance();
-            builder.RegisterType<IcmPollingHandler>()
-                .WithParameter(TypedParameter.From(_settings.CurrentValue.IcmSettings.PollingPeriodMilliseconds))
-                .SingleInstance();*/
+            
+            builder.RegisterType<PositionControlPollingHandler>()
+                .WithParameter(TypedParameter.From(_settings.CurrentValue.PositionControlPollingPeriodMilliseconds))
+                .SingleInstance();
             
             builder.RegisterType<DataSavingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.DataSavingPeriodMilliseconds))
@@ -152,13 +152,24 @@ namespace Lykke.Job.ExchangePolling.Modules
 
         private void RegisterRabbitMqPublishers(ContainerBuilder builder)
         {
-            builder.RegisterType<RabbitMqPublisher<ExecutionReport>>()
-                .As<IRabbitMqPublisher<ExecutionReport>>()
+            builder.RegisterType<PositionControlReportPublisher>()
+                .As<IPositionControlReportPublisher>()
                 .SingleInstance()
                 .WithParameters(new[]
                 {
-                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.ConnectionString),
-                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.ExchangeConnectorOrder.ExchangeName),
+                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.PositionControlOrder.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.PositionControlOrder.ExchangeName),
+                    new NamedParameter("enabled", true),
+                    new NamedParameter("log", _log)
+                });
+            
+            builder.RegisterType<NonStreamingReportPublisher>()
+                .As<INonStreamingReportPublisher>()
+                .SingleInstance()
+                .WithParameters(new[]
+                {
+                    new NamedParameter("connectionString", _settings.CurrentValue.Rabbit.NonStreamingOrder.ConnectionString),
+                    new NamedParameter("exchangeName", _settings.CurrentValue.Rabbit.NonStreamingOrder.ExchangeName),
                     new NamedParameter("enabled", true),
                     new NamedParameter("log", _log)
                 });

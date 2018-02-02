@@ -96,8 +96,7 @@ namespace Lykke.Job.ExchangePolling.Services
                 currentHedgingPositions?
                     .Where(x => _requiredExchanges.Any(exch => exch == x.Exchange))
                     .GroupBy(x => x.Exchange)
-                    .ToDictionary(x => x.Key, x => x.Select(Position.Create).ToList())
-                ?? new Dictionary<string, List<Position>>());
+                    .ToDictionary(x => x.Key, x => x.Select(Position.Create).ToList()));
             
             //save old blob data
             await _genericBlobRepository.Write(Constants.BlobContainerName, 
