@@ -137,7 +137,7 @@ namespace Lykke.Job.ExchangePolling.Modules
                     new NamedParameter("log", _log)
                 });
             
-            builder.RegisterType<HedgingTradeSubscriber>()
+            builder.RegisterType<ExchangeConnectorOrderSubscriber>()
                 .AsSelf()
                 .SingleInstance()
                 .WithParameters(new[]

@@ -137,7 +137,7 @@ namespace Lykke.Job.ExchangePolling
                 //subscribe on rabbits
                 ApplicationContainer.Resolve<OrderBookSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IQuoteService>().HandleQuote);
-                ApplicationContainer.Resolve<HedgingTradeSubscriber>().Subscribe(
+                ApplicationContainer.Resolve<ExchangeConnectorOrderSubscriber>().Subscribe(
                     ApplicationContainer.Resolve<IOrderService>().HandleHedgingTrade);
                 await Task.Delay(TimeSpan.FromSeconds(5));
                 

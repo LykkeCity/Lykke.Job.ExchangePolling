@@ -13,12 +13,14 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
     public abstract class ExchangePollingHandler : TimerPeriod
     {
         protected IEnumerable<string> ExchangeNames { get; set; }
+
+        private readonly Func<string, TimeSpan, Task> _pollingHandler;
+
+        protected readonly TimeSpan PollingPeriod;
         
         protected readonly IExchangeConnectorService ExchangeConnectorService;
 
-        protected readonly TimeSpan PollingPeriod;
-
-        private readonly Func<string, TimeSpan, Task> _pollingHandler;
+        protected readonly ILog _log;
 
         protected ExchangePollingHandler(
             string contextName,
@@ -33,6 +35,8 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
             PollingPeriod = TimeSpan.FromMilliseconds(pollingPeriodMilliseconds);
 
             ExchangeConnectorService = exchangeConnectorService;
+
+            _log = log;
         }
 
         public override async Task Execute()
