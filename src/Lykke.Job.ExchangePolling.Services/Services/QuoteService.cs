@@ -18,23 +18,16 @@ namespace Lykke.Job.ExchangePolling.Services.Services
 
         private readonly ILog _log;
 
-        private readonly List<string> _requiredExchanges;
-
         public QuoteService(IQuoteCache quoteCache, 
             IReloadingManager<ExchangePollingJobSettings> settings,
             ILog log)
         {
             _quoteCache = quoteCache;
             _log = log;
-
-            _requiredExchanges = settings.CurrentValue.GetHandledExchanges().ToList();
         }
 
         public async Task HandleQuote(OrderBook orderBook)
         {
-            if (_requiredExchanges.All(x => x != orderBook.Source))
-                return;
-            
             var bestPriceQuote = ConvertToBestPriceQuote(orderBook);
 
             if (string.IsNullOrEmpty(bestPriceQuote?.ExchangeName) || string.IsNullOrEmpty(bestPriceQuote.Instrument)

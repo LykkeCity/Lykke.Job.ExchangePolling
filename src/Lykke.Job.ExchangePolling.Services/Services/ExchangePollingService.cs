@@ -67,9 +67,9 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 exchangeName, timeout);
         }
         
-        public async Task PollNonStreamingExchange(string exchangeName, TimeSpan timeout)
+        public async Task NonStreamingExchangePoll(string exchangeName, TimeSpan timeout)
         {
-            await PollAndHandleChanges(nameof(PollNonStreamingExchange), _nonStreamingReportPublisher.Publish,
+            await PollAndHandleChanges(nameof(NonStreamingExchangePoll), _nonStreamingReportPublisher.Publish,
                 exchangeName, timeout);
         }
 
@@ -80,7 +80,7 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             if (positions == null)
                 return;
             
-            using (await _mutex.LockAsync()) //tokenSource.Token))
+            using (await _mutex.LockAsync())
             {
                 var exchange = _exchangeCache.GetOrCreate(exchangeName);
 

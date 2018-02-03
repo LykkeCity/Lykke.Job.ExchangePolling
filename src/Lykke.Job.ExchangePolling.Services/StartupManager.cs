@@ -34,8 +34,6 @@ namespace Lykke.Job.ExchangePolling.Services
         
         private readonly ILog _log;
 
-        private readonly List<string> _requiredExchanges;
-
         public StartupManager(
             IExchangeCache exchangeCache,
             IQuoteCache quoteCache,
@@ -56,8 +54,6 @@ namespace Lykke.Job.ExchangePolling.Services
             _hedgingServiceClient = hedgingServiceClient;
             
             _log = log;
-
-            _requiredExchanges = settings.CurrentValue.GetHandledExchanges().ToList();
         }
 
         /// <summary>
@@ -93,9 +89,7 @@ namespace Lykke.Job.ExchangePolling.Services
 
             //initialize ExchangeCache
             var cachedData = _exchangeCache.Initialize(savedExchanges,
-                currentHedgingPositions?
-                    .Where(x => _requiredExchanges.Any(exch => exch == x.Exchange))
-                    .GroupBy(x => x.Exchange)
+                currentHedgingPositions?.GroupBy(x => x.Exchange)
                     .ToDictionary(x => x.Key, x => x.Select(Position.Create).ToList()));
             
             //save old blob data

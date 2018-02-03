@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Common.Log;
@@ -14,18 +15,26 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
             IExchangeConnectorService exchangeConnectorService,
             ILog log,
             int pollingPeriodMilliseconds)
-            : base(nameof(ExchangePollingHandler), exchangePollingService.PositionControlPoll, pollingPeriodMilliseconds,
+            : base(nameof(ExchangePollingHandler), 
+                exchangePollingService.PositionControlPoll, 
+                pollingPeriodMilliseconds,
                 exchangeConnectorService, log)
         {
         }
 
         /// <summary>
-        /// Grab the list of non-streaming exchanges and start the Timer
+        /// Grab the list of order streaming exchanges and start the Timer
         /// </summary>
         /// <returns></returns>
         public async Task InitializeAndStart()
         {
-            ExchangeNames = await ExchangeConnectorService.GetSupportedExchangesAsync();
+            var allExchanges = await ExchangeConnectorService.GetSupportedExchangesAsync();
+            var extendedExchangeData = await Task.WhenAll(allExchanges.Select(e =>
+                ExchangeConnectorService.GetExchangeInfoAsync(e, new CancellationTokenSource(PollingPeriod).Token)));
+            ExchangeNames = extendedExchangeData.Where(e => (e.StreamingSupport.Orders ?? false)).Select(e => e.Name);
+
+            await _log.WriteInfoAsync(nameof(PositionControlPollingHandler), nameof(InitializeAndStart),
+                $"Initialized with streaming exchanges: {string.Join(", ", ExchangeNames)}", DateTime.UtcNow);
             
             this.Start();
         }

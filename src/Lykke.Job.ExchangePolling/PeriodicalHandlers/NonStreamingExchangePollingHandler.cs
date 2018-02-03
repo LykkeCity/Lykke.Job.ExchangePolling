@@ -15,13 +15,15 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
             IExchangeConnectorService exchangeConnectorService,
             ILog log,
             int pollingPeriodMilliseconds)
-            : base(nameof(ExchangePollingHandler), exchangePollingService.PollNonStreamingExchange, pollingPeriodMilliseconds,
+            : base(nameof(ExchangePollingHandler), 
+                exchangePollingService.NonStreamingExchangePoll, 
+                pollingPeriodMilliseconds,
                 exchangeConnectorService, log)
         {
         }
 
         /// <summary>
-        /// Grab the list of non-streaming exchanges and start the Timer
+        /// Grab the list of order non-streaming exchanges and start the Timer
         /// </summary>
         /// <returns></returns>
         public async Task InitializeAndStart()
@@ -30,6 +32,9 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
             var extendedExchangeData = await Task.WhenAll(allExchanges.Select(e =>
                 ExchangeConnectorService.GetExchangeInfoAsync(e, new CancellationTokenSource(PollingPeriod).Token)));
             ExchangeNames = extendedExchangeData.Where(e => !(e.StreamingSupport.Orders ?? true)).Select(e => e.Name);
+
+            await _log.WriteInfoAsync(nameof(NonStreamingExchangePollingHandler), nameof(InitializeAndStart),
+                $"Initialized with non-streaming exchanges: {string.Join(", ", ExchangeNames)}", DateTime.UtcNow);
             
             this.Start();
         }

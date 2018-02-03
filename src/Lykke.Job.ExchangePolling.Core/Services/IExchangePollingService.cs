@@ -14,7 +14,7 @@ namespace Lykke.Job.ExchangePolling.Core.Services
         /// <param name="exchangeName"></param>
         /// <param name="timeout"></param>
         /// <returns></returns>
-        Task PollNonStreamingExchange(string exchangeName, TimeSpan timeout);
+        Task NonStreamingExchangePoll(string exchangeName, TimeSpan timeout);
 
         /// <summary>
         /// Polling entry point for position control long cycle ~1hour.
