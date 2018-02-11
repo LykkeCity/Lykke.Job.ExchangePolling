@@ -3,6 +3,7 @@ using Autofac.Extensions.DependencyInjection;
 using Common.Log;
 using Lykke.Job.ExchangePolling.AzureRepositories;
 using Lykke.Job.ExchangePolling.Contract;
+using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Repositories;
 using Lykke.Job.ExchangePolling.Core.Services;
@@ -117,6 +118,11 @@ namespace Lykke.Job.ExchangePolling.Modules
             builder.RegisterType<PositionControlPollingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.PositionControlPollingPeriodMilliseconds))
                 .SingleInstance();
+
+            builder.RegisterType<PositionControlRepeatHandler>()
+                .WithParameter(TypedParameter.From(_settings))
+                .As<IPositionControlRepeatHandler>()
+                .InstancePerDependency();
             
             builder.RegisterType<DataSavingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.DataSavingPeriodMilliseconds))

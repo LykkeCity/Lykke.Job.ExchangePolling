@@ -64,7 +64,7 @@ namespace Lykke.Job.ExchangePolling.Services
         {
             await InitializeExchangeCache();
             
-            //TODO init list of !realtime exchanges from ExchangeConnector
+            //TODO init list of realtime/non-realtime exchanges from ExchangeConnector
         }
 
         private async Task InitializeExchangeCache()
