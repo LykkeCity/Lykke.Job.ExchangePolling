@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -37,8 +38,8 @@ namespace Lykke.Job.ExchangePolling.Services.Services
 
         private readonly AsyncLock _mutex = new AsyncLock();
 
-        private readonly List<IPositionControlRepeatHandler> _activeRepeatHandlers =
-            new List<IPositionControlRepeatHandler>();
+        private readonly ConcurrentDictionary<string, Dictionary<string, decimal>> _activeRepeatHandlers =
+            new ConcurrentDictionary<string, Dictionary<string, decimal>>();
 
         public ExchangePollingService(
             IComponentContext componentContext,
@@ -84,19 +85,30 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 async (context, exchange, positions, executedTrades, publishFunc) =>
                 {
                     //clear finished/freezed repeating timers
-                    _activeRepeatHandlers.FirstOrDefault(x => x.ExchangeName == exchange.Name)?.Stop();
-                    foreach (var stopped in _activeRepeatHandlers.Where(x => !x.Working).ToList())
-                        _activeRepeatHandlers.Remove(stopped);
+                    _activeRepeatHandlers.TryGetValue(exchangeName, out var savedDivergence);
+                    if (savedDivergence != null)
+                        return;
                     
                     //start timer to invoke repeating poll to make sure that divergence taken place
-                    var timer = _componentContext.Resolve<IPositionControlRepeatHandler>(
+                    /*var timer = _componentContext.Resolve<IPositionControlRepeatHandler>(
                         new NamedParameter("exchangeName", exchange.Name),
                         new NamedParameter("divergence",
                             executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume)));
                     timer.Start();
-                    _activeRepeatHandlers.Add(timer);
-                    
-                    return;
+                    */
+                    //start recheck in a separate thread
+                    Func<Task> timerLambda = async () =>
+                    {
+                        Thread.Sleep(_settings.CurrentValue.DivergenceRecheckTimeoutMilliseconds);
+                        await this.PositionControlRepeatPoll(exchangeName,
+                            TimeSpan.FromMilliseconds(_settings.CurrentValue.DivergenceRecheckTimeoutMilliseconds));
+                        _activeRepeatHandlers.Remove(exchangeName, out var divergences);
+                    };
+                    var cancellationToken = new CancellationTokenSource(timeout);
+                    await Task.Run(timerLambda, cancellationToken.Token);
+
+                    _activeRepeatHandlers.AddOrUpdate(exchangeName,
+                        executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume), (s, decimals) => null);
                 });
         }
 
@@ -124,14 +136,14 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 var checkResults = CheckPositions(exchange, positions);
 
                 //create diff order for Risk System
-                var repeatHandler = _activeRepeatHandlers.FirstOrDefault(y => y.ExchangeName == exchangeName);
+                _activeRepeatHandlers.TryGetValue(exchangeName, out var savedDivergence);
                 var executedTrades = checkResults
                     .Select(x => CreateExecutionReport(exchangeName, x.Item1, x.Item2))
                     //do nothing if there's no quotes on any instrument, and wait for actual quotes.
                     .Where(x => x != null)
                     .Where(x => !isRepeatedCall || 
-                                (repeatHandler != null 
-                                && repeatHandler.Divergence.TryGetValue(x.Instrument.Name, out var divergence) 
+                                (savedDivergence != null 
+                                && savedDivergence.TryGetValue(x.Instrument.Name, out var divergence) 
                                 && divergence == x.Volume))
                     .ToList();
 
