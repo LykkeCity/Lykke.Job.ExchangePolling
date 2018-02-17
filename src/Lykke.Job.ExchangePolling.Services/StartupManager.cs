@@ -70,8 +70,8 @@ namespace Lykke.Job.ExchangePolling.Services
         private async Task InitializeExchangeCache()
         {
             //read last saved cache
-            var savedExchanges = await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,
-                Constants.BlobExchangesCache);
+            var savedExchanges = (await _genericBlobRepository.ReadAsync<List<Exchange>>(Constants.BlobContainerName,
+                Constants.BlobExchangesCache)) ?? new List<Exchange>();
             
             //retrieve current hedging positions
             IReadOnlyList<ExternalPositionModel> currentHedgingPositions = null;

@@ -81,7 +81,7 @@ namespace Lykke.Job.ExchangePolling.Services.Services
         public async Task PositionControlPoll(string exchangeName, TimeSpan timeout)
         {
             await PollAndHandleChanges(nameof(PositionControlPoll), null, exchangeName, timeout,
-                (context, exchange, positions, executedTrades, publishFunc) =>
+                async (context, exchange, positions, executedTrades, publishFunc) =>
                 {
                     //clear finished/freezed repeating timers
                     _activeRepeatHandlers.FirstOrDefault(x => x.ExchangeName == exchange.Name)?.Stop();
@@ -92,11 +92,11 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                     var timer = _componentContext.Resolve<IPositionControlRepeatHandler>(
                         new NamedParameter("exchangeName", exchange.Name),
                         new NamedParameter("divergence",
-                            executedTrades.ToDictionary(x => x.Instrument, x => x.Volume)));
+                            executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume)));
                     timer.Start();
                     _activeRepeatHandlers.Add(timer);
                     
-                    return Task.CompletedTask;
+                    return;
                 });
         }
 
