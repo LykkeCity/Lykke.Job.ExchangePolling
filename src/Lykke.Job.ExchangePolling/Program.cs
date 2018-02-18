@@ -21,7 +21,7 @@ namespace Lykke.Job.ExchangePolling
             {
                 var webHost = new WebHostBuilder()
                     .UseKestrel()
-                    .UseUrls("http://*:5026")
+                    .UseUrls("http://*:5000")
                     .UseContentRoot(Directory.GetCurrentDirectory())
                     .UseStartup<Startup>()
                     .UseApplicationInsights()
