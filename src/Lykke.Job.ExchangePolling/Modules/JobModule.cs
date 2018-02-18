@@ -118,11 +118,6 @@ namespace Lykke.Job.ExchangePolling.Modules
             builder.RegisterType<PositionControlPollingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.PositionControlPollingPeriodMilliseconds))
                 .SingleInstance();
-
-            builder.RegisterType<PositionControlRepeatHandler>()
-                .WithParameter(TypedParameter.From(_settings))
-                .As<IPositionControlRepeatHandler>()
-                .InstancePerDependency();
             
             builder.RegisterType<DataSavingHandler>()
                 .WithParameter(TypedParameter.From(_settings.CurrentValue.DataSavingPeriodMilliseconds))

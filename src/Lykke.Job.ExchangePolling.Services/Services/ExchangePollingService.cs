@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Autofac;
 using Common.Log;
 using Lykke.Job.ExchangePolling.Contract;
+using Lykke.Job.ExchangePolling.Contract.Enums;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
@@ -89,14 +90,7 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                     if (savedDivergence != null)
                         return;
                     
-                    //start timer to invoke repeating poll to make sure that divergence taken place
-                    /*var timer = _componentContext.Resolve<IPositionControlRepeatHandler>(
-                        new NamedParameter("exchangeName", exchange.Name),
-                        new NamedParameter("divergence",
-                            executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume)));
-                    timer.Start();
-                    */
-                    //start recheck in a separate thread
+                    //start repeating poll recheck in a separate thread to make sure that divergence has taken place
                     Func<Task> timerLambda = async () =>
                     {
                         Thread.Sleep(_settings.CurrentValue.DivergenceRecheckTimeoutMilliseconds);
@@ -104,11 +98,12 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                             TimeSpan.FromMilliseconds(_settings.CurrentValue.DivergenceRecheckTimeoutMilliseconds));
                         _activeRepeatHandlers.Remove(exchangeName, out var divergences);
                     };
-                    var cancellationToken = new CancellationTokenSource(timeout);
-                    await Task.Run(timerLambda, cancellationToken.Token);
-
                     _activeRepeatHandlers.AddOrUpdate(exchangeName,
-                        executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume), (s, decimals) => null);
+                        executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume), (s, decimals) => decimals);
+                    
+                    //TODO return back timeout
+                    var cancellationToken = new CancellationTokenSource();//timeout);
+                    await Task.Run(timerLambda, cancellationToken.Token);
                 });
         }
 
@@ -128,16 +123,18 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             if ((positions?.Count ?? 0) == 0)
                 return;
 
+            Exchange exchange = null;
+            List<ExecutionReport> executedTrades = null;
             using (await _mutex.LockAsync())
             {
-                var exchange = _exchangeCache.GetOrCreate(exchangeName);
+                exchange = _exchangeCache.GetOrCreate(exchangeName);
 
                 //perform checking
                 var checkResults = CheckPositions(exchange, positions);
 
                 //create diff order for Risk System
                 _activeRepeatHandlers.TryGetValue(exchangeName, out var savedDivergence);
-                var executedTrades = checkResults
+                executedTrades = checkResults
                     .Select(x => CreateExecutionReport(exchangeName, x.Item1, x.Item2))
                     //do nothing if there's no quotes on any instrument, and wait for actual quotes.
                     .Where(x => x != null)
@@ -150,8 +147,11 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 if (executedTrades.Count == 0)
                     return;
 
-                await handleResults(context, exchange, positions, executedTrades, publishFunc);
+                if (context != nameof(PositionControlPoll))
+                    await handleResults(context, exchange, positions, executedTrades, publishFunc);
             }
+            if (context == nameof(PositionControlPoll))
+                await handleResults(context, exchange, positions, executedTrades, publishFunc);
         }
 
         private async Task PublishAndUpdateCache(string context, Exchange exchange, IEnumerable<Position> positions,
@@ -235,9 +235,11 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 DateTime.UtcNow,
                 diff > 0 ? quote.Bid : quote.Ask,
                 diff,
-                diff > 0 ? Contract.Enums.TradeType.Buy : Contract.Enums.TradeType.Sell,
+                diff > 0 ? TradeType.Buy : TradeType.Sell,
                 Constants.DiffOrderPrefix + Guid.NewGuid(),
-                Contract.Enums.OrderExecutionStatus.Fill);
+                OrderExecutionStatus.Fill,
+                ExecType.Trade,
+                OrderType.Market);
         }
 
         /// <summary>
