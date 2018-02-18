@@ -3,6 +3,7 @@ using Autofac.Extensions.DependencyInjection;
 using Common.Log;
 using Lykke.Job.ExchangePolling.AzureRepositories;
 using Lykke.Job.ExchangePolling.Contract;
+using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Repositories;
 using Lykke.Job.ExchangePolling.Core.Services;

@@ -92,7 +92,8 @@ namespace Lykke.Job.ExchangePolling.Contract
 
         [JsonConstructor]
         public ExecutionReport(Instrument instrument, DateTime time, decimal price,
-            decimal volume, TradeType type, string orderId, OrderExecutionStatus executionStatus)
+            decimal volume, TradeType type, string orderId, OrderExecutionStatus executionStatus, 
+            ExecType execType, OrderType orderType)
         {
             Instrument = instrument;
             Time = time;
@@ -102,6 +103,8 @@ namespace Lykke.Job.ExchangePolling.Contract
             Fee = 0; // TODO
             ExchangeOrderId = orderId;
             ExecutionStatus = executionStatus;
+            ExecType = execType;
+            OrderType = orderType;
         }
 
         public override string ToString()

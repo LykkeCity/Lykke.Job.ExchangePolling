@@ -15,5 +15,7 @@
         public int DataSavingPeriodMilliseconds { get; set; }
         
         public int QuotesTtlMilliseconds { get; set; }
+        
+        public int DivergenceRecheckTimeoutMilliseconds { get; set; }
     }
 }

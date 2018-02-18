@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Autofac;
 using Common.Log;
 using Lykke.Job.ExchangePolling.Contract;
+using Lykke.Job.ExchangePolling.Contract.Enums;
 using Lykke.Job.ExchangePolling.Core;
 using Lykke.Job.ExchangePolling.Core.Caches;
 using Lykke.Job.ExchangePolling.Core.Domain;
@@ -12,12 +15,15 @@ using Lykke.Job.ExchangePolling.Core.Services;
 using Lykke.Job.ExchangePolling.Core.Settings.JobSettings;
 using Lykke.Service.ExchangeConnector.Client;
 using Lykke.SettingsReader;
+using MoreLinq;
 using Nito.AsyncEx;
 
 namespace Lykke.Job.ExchangePolling.Services.Services
 {
     public class ExchangePollingService : IExchangePollingService
     {
+        private readonly IComponentContext _componentContext;
+
         private readonly IExchangeCache _exchangeCache;
 
         private readonly IQuoteService _quoteService;
@@ -26,27 +32,34 @@ namespace Lykke.Job.ExchangePolling.Services.Services
 
         private readonly IPositionControlReportPublisher _positionControlReportPublisher;
         private readonly INonStreamingReportPublisher _nonStreamingReportPublisher;
-        
+
         private readonly IReloadingManager<ExchangePollingJobSettings> _settings;
 
         private readonly ILog _log;
 
         private readonly AsyncLock _mutex = new AsyncLock();
-        
+
+        private readonly ConcurrentDictionary<string, Dictionary<string, decimal>> _activeRepeatHandlers =
+            new ConcurrentDictionary<string, Dictionary<string, decimal>>();
+
         public ExchangePollingService(
+            IComponentContext componentContext,
+
             IExchangeCache exchangeCache,
-            
+
             IQuoteService quoteService,
-            
+
             IExchangeConnectorService exchangeConnectorService,
-            
+
             IPositionControlReportPublisher positionControlReportPublisher,
             INonStreamingReportPublisher nonStreamingReportPublisher,
-            
+
             IReloadingManager<ExchangePollingJobSettings> settings,
-            
+
             ILog log)
         {
+            _componentContext = componentContext;
+
             _exchangeCache = exchangeCache;
 
             _quoteService = quoteService;
@@ -61,54 +74,99 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             _log = log;
         }
 
-        public async Task PositionControlPoll(string exchangeName, TimeSpan timeout)
-        {
-            await PollAndHandleChanges(nameof(PositionControlPoll), _positionControlReportPublisher.Publish,
-                exchangeName, timeout);
-        }
-        
         public async Task NonStreamingExchangePoll(string exchangeName, TimeSpan timeout)
         {
             await PollAndHandleChanges(nameof(NonStreamingExchangePoll), _nonStreamingReportPublisher.Publish,
-                exchangeName, timeout);
+                exchangeName, timeout, PublishAndUpdateCache);
         }
 
-        private async Task PollAndHandleChanges(string context, Func<ExecutionReport, Task> publishFunc, 
-            string exchangeName, TimeSpan timeout)
+        public async Task PositionControlPoll(string exchangeName, TimeSpan timeout)
+        {
+            await PollAndHandleChanges(nameof(PositionControlPoll), null, exchangeName, timeout,
+                async (context, exchange, positions, executedTrades, publishFunc) =>
+                {
+                    //clear finished/freezed repeating timers
+                    _activeRepeatHandlers.TryGetValue(exchangeName, out var savedDivergence);
+                    if (savedDivergence != null)
+                        return;
+                    
+                    //start repeating poll recheck in a separate thread to make sure that divergence has taken place
+                    Func<Task> timerLambda = async () =>
+                    {
+                        Thread.Sleep(_settings.CurrentValue.DivergenceRecheckTimeoutMilliseconds);
+                        await this.PositionControlRepeatPoll(exchangeName,
+                            TimeSpan.FromMilliseconds(_settings.CurrentValue.DivergenceRecheckTimeoutMilliseconds));
+                        _activeRepeatHandlers.Remove(exchangeName, out var divergences);
+                    };
+                    _activeRepeatHandlers.AddOrUpdate(exchangeName,
+                        executedTrades.ToDictionary(x => x.Instrument.Name, x => x.Volume), (s, decimals) => decimals);
+                    
+                    //TODO return back timeout
+                    var cancellationToken = new CancellationTokenSource();//timeout);
+                    await Task.Run(timerLambda, cancellationToken.Token);
+                });
+        }
+
+        public async Task PositionControlRepeatPoll(string exchangeName, TimeSpan timeout)
+        {
+            await PollAndHandleChanges(nameof(PositionControlRepeatPoll),
+                _positionControlReportPublisher.Publish, exchangeName, timeout, PublishAndUpdateCache, true);
+        }
+
+        private async Task PollAndHandleChanges(string context, Func<ExecutionReport, Task> publishFunc,
+            string exchangeName, TimeSpan timeout, 
+            Func<string, Exchange, IEnumerable<Position>, 
+                IReadOnlyList<ExecutionReport>, Func<ExecutionReport, Task>, Task> handleResults,
+            bool isRepeatedCall = false)
         {
             var positions = await RetrievePosition(context, exchangeName, timeout);
-            if (positions == null)
+            if ((positions?.Count ?? 0) == 0)
                 return;
-            
+
+            Exchange exchange = null;
+            List<ExecutionReport> executedTrades = null;
             using (await _mutex.LockAsync())
             {
-                var exchange = _exchangeCache.GetOrCreate(exchangeName);
+                exchange = _exchangeCache.GetOrCreate(exchangeName);
 
                 //perform checking
                 var checkResults = CheckPositions(exchange, positions);
 
                 //create diff order for Risk System
-                var executedTrades = checkResults
+                _activeRepeatHandlers.TryGetValue(exchangeName, out var savedDivergence);
+                executedTrades = checkResults
                     .Select(x => CreateExecutionReport(exchangeName, x.Item1, x.Item2))
                     //do nothing if there's no quotes on any instrument, and wait for actual quotes.
                     .Where(x => x != null)
+                    .Where(x => !isRepeatedCall || 
+                                (savedDivergence != null 
+                                && savedDivergence.TryGetValue(x.Instrument.Name, out var divergence) 
+                                && divergence == x.Volume))
                     .ToList();
 
                 if (executedTrades.Count == 0)
                     return;
 
-                //publish trades for Risk System
-                foreach (var executedTrade in executedTrades)
-                    await publishFunc(executedTrade);
-                await _log.WriteInfoAsync(nameof(ExchangePollingService), context,
-                    $"Execution report was published for {exchangeName}: {string.Join(", ", executedTrades.Select(x => x.Instrument.Name))}",
-                    DateTime.UtcNow);
-
-                //update positions and push published changes to cache
-                exchange.UpdatePositions(positions.Where(x =>
-                    executedTrades.Select(tr => tr.Instrument.Name).Any(instrument => instrument == x.Symbol)));
-                _exchangeCache.Set(exchange);
+                if (context != nameof(PositionControlPoll))
+                    await handleResults(context, exchange, positions, executedTrades, publishFunc);
             }
+            if (context == nameof(PositionControlPoll))
+                await handleResults(context, exchange, positions, executedTrades, publishFunc);
+        }
+
+        private async Task PublishAndUpdateCache(string context, Exchange exchange, IEnumerable<Position> positions,
+            IReadOnlyList<ExecutionReport> executedTrades, Func<ExecutionReport, Task> publishFunc)
+        {
+            //publish trades for Risk System
+            await Task.WhenAll(executedTrades.Select(publishFunc));
+            await _log.WriteInfoAsync(nameof(ExchangePollingService), context,
+                $"Execution report was published for {exchange.Name}: {string.Join(", ", executedTrades.Select(x => x.Instrument.Name))}",
+                DateTime.UtcNow);
+
+            //update positions and push published changes to cache
+            exchange.UpdatePositions(positions.Where(x =>
+                executedTrades.Select(tr => tr.Instrument.Name).Any(instrument => instrument == x.Symbol)));
+            _exchangeCache.Set(exchange);
         }
 
         private async Task<IReadOnlyList<Position>> RetrievePosition(string context, string exchangeName, TimeSpan timeout)
@@ -177,9 +235,11 @@ namespace Lykke.Job.ExchangePolling.Services.Services
                 DateTime.UtcNow,
                 diff > 0 ? quote.Bid : quote.Ask,
                 diff,
-                diff > 0 ? Contract.Enums.TradeType.Buy : Contract.Enums.TradeType.Sell,
+                diff > 0 ? TradeType.Buy : TradeType.Sell,
                 Constants.DiffOrderPrefix + Guid.NewGuid(),
-                Contract.Enums.OrderExecutionStatus.Fill);
+                OrderExecutionStatus.Fill,
+                ExecType.Trade,
+                OrderType.Market);
         }
 
         /// <summary>

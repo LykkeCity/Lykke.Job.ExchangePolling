@@ -15,7 +15,7 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
             IExchangeConnectorService exchangeConnectorService,
             ILog log,
             int pollingPeriodMilliseconds)
-            : base(nameof(ExchangePollingHandler), 
+            : base(nameof(PositionControlPollingHandler), 
                 exchangePollingService.PositionControlPoll, 
                 pollingPeriodMilliseconds,
                 exchangeConnectorService, log)
@@ -28,14 +28,12 @@ namespace Lykke.Job.ExchangePolling.PeriodicalHandlers
         /// <returns></returns>
         public async Task InitializeAndStart()
         {
-            var allExchanges = await ExchangeConnectorService.GetSupportedExchangesAsync();
-            var extendedExchangeData = await Task.WhenAll(allExchanges.Select(e =>
-                ExchangeConnectorService.GetExchangeInfoAsync(e, new CancellationTokenSource(PollingPeriod).Token)));
+            var extendedExchangeData = await this.RetrieveExchangeConfig();
             ExchangeNames = extendedExchangeData.Where(e => (e.StreamingSupport.Orders ?? false)).Select(e => e.Name);
 
-            await _log.WriteInfoAsync(nameof(PositionControlPollingHandler), nameof(InitializeAndStart),
+            await Log.WriteInfoAsync(nameof(PositionControlPollingHandler), nameof(InitializeAndStart),
                 $"Initialized with streaming exchanges: {string.Join(", ", ExchangeNames)}", DateTime.UtcNow);
-            
+
             this.Start();
         }
     }
