@@ -42,6 +42,8 @@ namespace Lykke.Job.ExchangePolling.Services.Services
         private readonly ConcurrentDictionary<string, Dictionary<string, decimal>> _activeRepeatHandlers =
             new ConcurrentDictionary<string, Dictionary<string, decimal>>();
 
+        private readonly ConcurrentDictionary<string, DateTime> _warningCache = new ConcurrentDictionary<string, DateTime>();
+
         public ExchangePollingService(
             IComponentContext componentContext,
 
@@ -178,9 +180,15 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             }
             catch (Exception ex)
             {
-                await _log.WriteWarningAsync(nameof(ExchangePollingService), context,
-                    $"{exchangeName} exchange polling failed.", ex, DateTime.UtcNow);
-                //TODO consider sending slack notification here
+                if (!_warningCache.TryGetValue(exchangeName, out var lastWarning) ||
+                    DateTime.UtcNow.Subtract(lastWarning).TotalSeconds >
+                    _settings.CurrentValue.WarningThrottlingPeriodSeconds)
+                {
+                    _warningCache.AddOrUpdate(exchangeName, DateTime.UtcNow, (e, t) => DateTime.UtcNow);
+                    await _log.WriteWarningAsync(nameof(ExchangePollingService), context,
+                        $"{exchangeName} exchange polling failed.", ex, DateTime.UtcNow);
+                }
+
                 return null;
             }
         }
@@ -220,7 +228,7 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             var quote = _quoteService.Get(exchangeName, instrument);
             if (quote == null)
             {
-                _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(CreateExecutionReport), 
+                _log.WriteInfoAsync(nameof(ExchangePollingService), nameof(CreateExecutionReport), 
                     $"Failed to get quotes for {exchangeName}: {instrument}. Stopped until next iteration.");
                 return null;
             }
