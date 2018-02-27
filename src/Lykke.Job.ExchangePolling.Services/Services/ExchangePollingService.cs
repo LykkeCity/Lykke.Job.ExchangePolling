@@ -180,11 +180,11 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             }
             catch (Exception ex)
             {
-                if (!_warningCache.TryGetValue(exchangeName, out var lastWarning) ||
+                if (!_warningCache.TryGetValue($"{exchangeName}_Poll", out var lastWarning) ||
                     DateTime.UtcNow.Subtract(lastWarning).TotalSeconds >
                     _settings.CurrentValue.WarningThrottlingPeriodSeconds)
                 {
-                    _warningCache.AddOrUpdate(exchangeName, DateTime.UtcNow, (e, t) => DateTime.UtcNow);
+                    _warningCache.AddOrUpdate($"{exchangeName}_Poll", DateTime.UtcNow, (e, t) => DateTime.UtcNow);
                     await _log.WriteWarningAsync(nameof(ExchangePollingService), context,
                         $"{exchangeName} exchange polling failed.", ex, DateTime.UtcNow);
                 }
@@ -228,8 +228,15 @@ namespace Lykke.Job.ExchangePolling.Services.Services
             var quote = _quoteService.Get(exchangeName, instrument);
             if (quote == null)
             {
-                _log.WriteInfoAsync(nameof(ExchangePollingService), nameof(CreateExecutionReport), 
-                    $"Failed to get quotes for {exchangeName}: {instrument}. Stopped until next iteration.");
+                if (!_warningCache.TryGetValue($"{exchangeName}_Quotes", out var lastWarning) ||
+                    DateTime.UtcNow.Subtract(lastWarning).TotalSeconds >
+                    _settings.CurrentValue.WarningThrottlingPeriodSeconds)
+                {
+                    _warningCache.AddOrUpdate($"{exchangeName}_Quotes", DateTime.UtcNow, (e, t) => DateTime.UtcNow);
+                    _log.WriteWarningAsync(nameof(ExchangePollingService), nameof(CreateExecutionReport),
+                        $"Failed to get quotes for {exchangeName}: {instrument}. Stopped until next iteration.");
+                }
+
                 return null;
             }
 
