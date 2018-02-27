@@ -17,5 +17,7 @@
         public int QuotesTtlMilliseconds { get; set; }
         
         public int DivergenceRecheckTimeoutMilliseconds { get; set; }
+        
+        public int WarningThrottlingPeriodSeconds { get; set; }
     }
 }
